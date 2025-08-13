@@ -343,6 +343,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_SURFER_C3_1_14TFT
         bool "Surfer-C3-1-14TFT"
         depends on IDF_TARGET_ESP32C3
+    config BOARD_TYPE_ESP32C5_SENSAIRPANEL
+        bool "ESP32-C5 Sensairpanel"
+        depends on IDF_TARGET_ESP32C5
 endchoice
 
 choice ESP_S3_LCD_EV_Board_Version_TYPE

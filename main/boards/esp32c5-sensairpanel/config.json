@@ -1,0 +1,12 @@
+{
+    "target": "esp32c5",
+    "builds": [
+        {
+            "name": "esp32c5-sensairpanel",
+            "sdkconfig_append": [
+                "CONFIG_IDF_TARGET=\"esp32c5\"",
+                "CONFIG_BOARD_TYPE_ESP32C5_SENSAIRPANEL=y",
+            ]
+        }
+    ]
+} 

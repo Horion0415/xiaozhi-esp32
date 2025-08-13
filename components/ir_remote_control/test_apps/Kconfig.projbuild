@@ -1,0 +1,37 @@
+menu "IR Remote Control Test HW Config"
+
+config IR_TEST_TX_GPIO
+    int "IR TX GPIO"
+    range 0 48
+    default 2
+    help
+        GPIO number connected to IR LED transmitter (RMT TX output).
+
+choice IR_TEST_CARRIER_SEL
+    prompt "IR Carrier Frequency"
+    default IR_TEST_CARRIER_38KHZ
+    help
+        Carrier frequency used by IR transmitter.
+
+config IR_TEST_CARRIER_38KHZ
+    bool "38 kHz"
+
+config IR_TEST_CARRIER_56KHZ
+    bool "56 kHz"
+
+endchoice
+
+config IR_TEST_RESOLUTION_HZ
+    int "RMT Resolution (Hz)"
+    range 100000 10000000
+    default 1000000
+    help
+        RMT timer resolution for generating IR timings.
+
+config IR_TEST_INVERT_SIGNAL
+    bool "Invert IR Signal"
+    default n
+    help
+        Invert RMT output signal if your hardware requires active-low drive.
+
+endmenu 

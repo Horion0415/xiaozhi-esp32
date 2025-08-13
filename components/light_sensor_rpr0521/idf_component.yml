@@ -1,0 +1,11 @@
+version: "0.1.0"
+description: "RPR-0521 Ambient Light and Proximity Sensor Component"
+
+tags:
+  - sensor
+  - light
+  - proximity
+  - i2c
+
+dependencies:
+  idf: ">=5.0.0" 

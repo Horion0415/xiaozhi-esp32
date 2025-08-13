@@ -1,0 +1,98 @@
+menu "IR Remote Control Online Configuration"
+
+    config IR_SERVER_URL
+        string "IRext Server Base URL"
+        default "http://localhost:8081/irext-server"
+        help
+            Base URL for IRext API server. Use private deployment or official server if needed.
+
+    config IR_APP_KEY
+        string "IRext APP Key"
+        default ""
+        help
+            APP Key obtained from IRext console.
+
+    config IR_APP_SECRET
+        string "IRext APP Secret"  
+        default ""
+        help
+            APP Secret obtained from IRext console.
+
+    config IR_AUTO_LOGIN
+        bool "Auto Login on Initialization"
+        default y
+        help
+            Automatically perform authentication when initializing IR system.
+
+    config IR_TOKEN_CACHE_ENABLED
+        bool "Enable Token Caching"
+        default y
+        help
+            Cache authentication token in NVS to avoid repeated login.
+
+    config IR_API_TIMEOUT_MS
+        int "API Request Timeout (ms)"
+        range 5000 60000
+        default 15000
+        help
+            Timeout for HTTP requests to IRext API server.
+
+    config IR_RETRY_COUNT
+        int "API Request Retry Count"
+        range 0 5
+        default 2
+        help
+            Number of times to retry failed API requests.
+
+    config IR_DECODE_RETRY_COUNT
+        int "Decode retry count when IR timings are invalid"
+        range 0 5
+        default 2
+        help
+            How many times to retry decode if response is invalid (e.g., timings length < 2).
+
+    config IR_ENABLE_DEBUG_LOGS
+        bool "Enable Debug Logging"
+        default n
+        help
+            Enable detailed debug logs for troubleshooting.
+
+    choice IR_CARRIER_FREQ
+        prompt "Default IR Carrier Frequency"
+        default IR_CARRIER_38KHZ
+        help
+            Default carrier frequency for IR transmission.
+
+        config IR_CARRIER_38KHZ
+            bool "38kHz (Most Common)"
+
+        config IR_CARRIER_56KHZ  
+            bool "56kHz (Some Devices)"
+    endchoice
+
+    config IR_TX_BACKEND_GPTIMER
+        bool "Use GPTimer backend for IR TX (no RMT)"
+        default y
+        help
+            Use LEDC + GPTimer to transmit IR timings without RMT channels.
+
+    config IR_TX_BACKEND_RMT
+        bool "Use RMT backend for IR TX"
+        default n
+        help
+            Use RMT copy encoder to transmit IR timings as symbols.
+
+    config IR_RESOLUTION_HZ
+        int "(Deprecated) RMT Resolution (Hz)"
+        range 100000 10000000
+        default 1000000
+        help
+            Kept for compatibility. Not used by LEDC backend.
+
+    config IR_USER_LANG
+        string "IRext user-lang header"
+        default "zh-CN"
+        help
+            HTTP header user-lang for IRext Web API (en-US, zh-CN, zh-TW, etc.).
+
+endmenu 

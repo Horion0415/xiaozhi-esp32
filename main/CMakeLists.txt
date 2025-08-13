@@ -26,7 +26,7 @@ set(SOURCES "audio/audio_codec.cc"
             "main.cc"
             )
 
-set(INCLUDE_DIRS "." "display" "audio" "protocols")
+set(INCLUDE_DIRS "." "display" "audio" "protocols" "app")
 
 # 添加板级公共文件
 file(GLOB BOARD_COMMON_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/boards/common/*.cc)
@@ -218,12 +218,28 @@ elseif(CONFIG_BOARD_TYPE_LABPLUS_LEDONG_V2)
     set(BOARD_TYPE "labplus-ledong-v2") 
 elseif(CONFIG_BOARD_TYPE_SURFER_C3_1_14TFT)
     set(BOARD_TYPE "surfer-c3-1.14tft")
+elseif(CONFIG_BOARD_TYPE_ESP32C5_SENSAIRPANEL)
+    set(BOARD_TYPE "esp32c5-sensairpanel")
 endif()
 file(GLOB BOARD_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_TYPE}/*.c
 )
 list(APPEND SOURCES ${BOARD_SOURCES})
+
+# Extra sources required by specific boards
+if(BOARD_TYPE STREQUAL "esp32c5-sensairpanel")
+    list(APPEND SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32c5-sensairpanel/adc_pdm_audio_codec_c5.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/boards/esp32c5-sensairpanel/emote_display_impl_c5.cc
+    )
+endif()
+
+# app layer sources
+list(APPEND SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/display_mode_controller.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/app_input_controller.cc
+)
 
 if(CONFIG_USE_AUDIO_PROCESSOR)
     list(APPEND SOURCES "audio/processors/afe_audio_processor.cc")
@@ -375,7 +391,7 @@ spiffs_create_partition_assets(
 )
 endif()
 
-if(CONFIG_BOARD_TYPE_ECHOEAR)
+if(CONFIG_BOARD_TYPE_ECHOEAR OR CONFIG_BOARD_TYPE_ESP32C5_SENSAIRPANEL)
 
 idf_build_get_property(build_components BUILD_COMPONENTS)
 foreach(COMPONENT ${build_components})
