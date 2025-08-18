@@ -1,5 +1,6 @@
 #include "app_input_controller.h"
 #include "bsp/esp32_c5_sensairpanel.h"
+#include "ui/ui_extra.h"
 
 static AppInputController* s_instance = nullptr;
 
@@ -21,6 +22,7 @@ void AppInputController::TouchCallback(bsp_button_source_t source, bsp_button_ev
         if (self->on_press_down_) self->on_press_down_();
     } else if (event == BSP_BUTTON_EVENT_PRESS_UP) {
         bsp_led_clear_for_touch(source);
+        ui_extra_on_button(source, event);
         if (self->on_press_up_) self->on_press_up_();
     }
 }
