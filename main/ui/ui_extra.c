@@ -130,8 +130,17 @@ void ui_extra_show_screen(const char* name) {
 
 void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (!g_inited) return;
-    if (event != BSP_BUTTON_EVENT_PRESS_UP) return;
     if (bsp_display_lock(0)) {
+        if (event == BSP_BUTTON_EVENT_LONG_PRESS) {
+            if (s_page == PAGE_LIGHT && source == BSP_INPUT_TOUCH_BOTTOM_LEFT) {
+                if (s_integration == INTEG_MATTER) s_integration = INTEG_HA; else if (s_integration == INTEG_HA) s_integration = INTEG_RAINMAKER; else s_integration = INTEG_MATTER;
+                ESP_LOGI(TAG, "integration mode: %d", s_integration);
+                light_apply();
+            }
+            bsp_display_unlock();
+            return;
+        }
+        if (event != BSP_BUTTON_EVENT_PRESS_UP) { bsp_display_unlock(); return; }
         if (source == BSP_INPUT_TOUCH_LEFT) {
             if (s_page==PAGE_LIGHT) ui_extra_show_screen("keyboard");
             else if (s_page==PAGE_AIRCON) ui_extra_show_screen("light");
