@@ -15,6 +15,7 @@ static int s_hue = 60;
 static int s_brightness = 60;
 static light_mode_t s_mode = MODE_HUE;
 static integ_mode_t s_integration = INTEG_MATTER;
+static bool s_bl_longpress = false;
 
 static lv_color_t hsv_to_color(int h, int s, int v) {
     int c = (v * s) / 100;
@@ -133,6 +134,7 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (bsp_display_lock(0)) {
         if (event == BSP_BUTTON_EVENT_LONG_PRESS) {
             if (s_page == PAGE_LIGHT && source == BSP_INPUT_TOUCH_BOTTOM_LEFT) {
+                s_bl_longpress = true;
                 if (s_integration == INTEG_MATTER) s_integration = INTEG_HA; else if (s_integration == INTEG_HA) s_integration = INTEG_RAINMAKER; else s_integration = INTEG_MATTER;
                 ESP_LOGI(TAG, "integration mode: %d", s_integration);
                 light_apply();
@@ -171,6 +173,7 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 light_apply();
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_LEFT:
+                if (s_bl_longpress) { s_bl_longpress = false; ESP_LOGI(TAG, "skip mode toggle after long press"); break; }
                 if (!s_light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 s_mode = (s_mode==MODE_HUE)? MODE_BRIGHTNESS: MODE_HUE;
                 ESP_LOGI(TAG, "light toggle mode: %d", s_mode);
