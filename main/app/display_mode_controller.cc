@@ -1,5 +1,6 @@
 #include "display_mode_controller.h"
 #include "bsp/esp32_c5_sensairpanel.h"
+#include "ui/ui_extra.h"
 
 DisplayModeController::DisplayModeController(lv_display_t* disp) : disp_(disp) {}
 
@@ -17,6 +18,7 @@ void DisplayModeController::EnterLvglMode()
     if (lvgl_port_take_trans_sem(disp_, portMAX_DELAY) != ESP_OK) return;
     ESP_ERROR_CHECK_WITHOUT_ABORT(lvgl_port_set_dummy_draw(disp_, false));
     ESP_ERROR_CHECK_WITHOUT_ABORT(lvgl_port_give_trans_sem(disp_, false));
+    ui_extra_on_enter_lvgl();
 }
 
 

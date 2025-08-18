@@ -3,6 +3,7 @@
 #include <string.h>
 #include <esp_log.h>
 #include "screens/ui_ScreenLight.h"
+#include "bsp/display.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
 typedef enum { PAGE_LIGHT=0, PAGE_AIRCON, PAGE_MUSIC, PAGE_KEYBOARD } ui_page_t;
@@ -47,11 +48,23 @@ static void light_apply(void) {
     }
     lv_label_set_text(ui_LabeColorTemRatioScreenLight, buf);
 }
+
+static void light_fullscreen(void) {
+    if (!ui_ImageColorTemScreenLight) return;
+    lv_display_t* d = lv_display_get_default();
+    if (!d) return;
+    int w = lv_display_get_horizontal_resolution(d);
+    int h = lv_display_get_vertical_resolution(d);
+    ESP_LOGI(TAG, "set light bg to full screen %dx%d", w, h);
+    lv_obj_set_size(ui_ImageColorTemScreenLight, w, h);
+    lv_obj_set_align(ui_ImageColorTemScreenLight, LV_ALIGN_TOP_LEFT);
+}
 void ui_extra_init(void) {
     if (g_inited) return;
     ESP_LOGI(TAG, "ui_extra_init");
     g_inited = true;
     s_page = PAGE_LIGHT;
+    light_fullscreen();
     light_apply();
 }
 void ui_extra_set_status(const char* text) {
@@ -62,26 +75,31 @@ void ui_extra_show_screen(const char* name) {
     if (!g_inited) return;
     if (!name) return;
     ESP_LOGI(TAG, "ui_extra_show_screen: %s", name);
-    if (strcmp(name, "light") == 0) {
-        lv_disp_load_scr(ui_ScreenLight);
-        s_page = PAGE_LIGHT;
-        light_apply();
-    } else if (strcmp(name, "aircon") == 0) {
-        lv_disp_load_scr(ui_ScreenAirCon);
-        s_page = PAGE_AIRCON;
-    } else if (strcmp(name, "music") == 0) {
-        lv_disp_load_scr(ui_ScreenMusic);
-        s_page = PAGE_MUSIC;
-    } else if (strcmp(name, "keyboard") == 0) {
-        lv_disp_load_scr(ui_ScreenKeyBoard);
-        s_page = PAGE_KEYBOARD;
+    if (bsp_display_lock(0)) {
+        if (strcmp(name, "light") == 0) {
+            lv_disp_load_scr(ui_ScreenLight);
+            s_page = PAGE_LIGHT;
+            light_fullscreen();
+            light_apply();
+        } else if (strcmp(name, "aircon") == 0) {
+            lv_disp_load_scr(ui_ScreenAirCon);
+            s_page = PAGE_AIRCON;
+        } else if (strcmp(name, "music") == 0) {
+            lv_disp_load_scr(ui_ScreenMusic);
+            s_page = PAGE_MUSIC;
+        } else if (strcmp(name, "keyboard") == 0) {
+            lv_disp_load_scr(ui_ScreenKeyBoard);
+            s_page = PAGE_KEYBOARD;
+        }
+        bsp_display_unlock();
     }
 }
 
 void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (!g_inited) return;
     if (event != BSP_BUTTON_EVENT_PRESS_UP) return;
-    if (s_page == PAGE_LIGHT) {
+    if (bsp_display_lock(0)) {
+        if (s_page == PAGE_LIGHT) {
         switch (source) {
             case BSP_INPUT_TOUCH_LEFT:
                 if (s_mode==MODE_HUE) s_hue = (s_hue+360-10)%360; else s_brightness = s_brightness>0? s_brightness-5:0;
@@ -115,16 +133,40 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 break;
             default: break;
         }
-    } else {
-        if (source == BSP_INPUT_TOUCH_LEFT) {
-            if (s_page==PAGE_AIRCON) ui_extra_show_screen("light");
-            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("aircon");
-            else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("music");
-        } else if (source == BSP_INPUT_TOUCH_RIGHT) {
-            if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
-            else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
-            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
+        } else {
+            if (source == BSP_INPUT_TOUCH_LEFT) {
+                if (s_page==PAGE_AIRCON) ui_extra_show_screen("light");
+                else if (s_page==PAGE_MUSIC) ui_extra_show_screen("aircon");
+                else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("music");
+            } else if (source == BSP_INPUT_TOUCH_RIGHT) {
+                if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
+                else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
+                else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
+            }
         }
+        bsp_display_unlock();
+    }
+}
+
+void ui_extra_on_enter_lvgl(void) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        lv_disp_t* d = lv_disp_get_default();
+        if (d) {
+            lv_obj_t* scr = lv_disp_get_scr_act(d);
+            if (scr) lv_obj_invalidate(scr);
+        }
+        if (s_page == PAGE_LIGHT) {
+            light_fullscreen();
+            light_apply();
+        } else if (s_page == PAGE_AIRCON) {
+            ui_extra_show_screen("aircon");
+        } else if (s_page == PAGE_MUSIC) {
+            ui_extra_show_screen("music");
+        } else if (s_page == PAGE_KEYBOARD) {
+            ui_extra_show_screen("keyboard");
+        }
+        bsp_display_unlock();
     }
 }
 
