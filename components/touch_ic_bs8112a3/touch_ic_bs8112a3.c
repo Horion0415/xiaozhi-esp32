@@ -82,8 +82,9 @@ static esp_err_t bs8112a3_configure_chip(void)
     }
     
     // Configure key trigger threshold (increased from 50 to 75 for less sensitivity)
-    uint8_t config_data[18] = {0x00, 0x00, 0x83, 0xf3, 0x98, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0x40, 0};
-    
+    // uint8_t config_data[18] = {0x00, 0x00, 0x83, 0xf3, 0x98, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 0x40, 0};
+    uint8_t config_data[18] = {0x00, 0x00, 0x83, 0xf3, 0x98, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 0x40, 0};
+
     // Calculate checksum
     for (int i = 0; i < 17; i++) {
         config_data[17] += config_data[i];
