@@ -19,6 +19,7 @@ void AppInputController::TouchCallback(bsp_button_source_t source, bsp_button_ev
     if (!self) return;
     if (event == BSP_BUTTON_EVENT_PRESS_DOWN) {
         bsp_led_set_for_touch(source, BSP_LED_COLOR_WHITE);
+        uint8_t r=0,g=0,b=0; ui_extra_get_arc_rgb(&r,&g,&b); bsp_led_set_rgb_for_touch(source, r,g,b);
         if (self->on_press_down_) self->on_press_down_();
     } else if (event == BSP_BUTTON_EVENT_PRESS_UP) {
         bsp_led_clear_for_touch(source);

@@ -8,11 +8,13 @@ static const char* TAG = "ui_extra";
 static bool g_inited = false;
 typedef enum { PAGE_LIGHT=0, PAGE_AIRCON, PAGE_MUSIC, PAGE_KEYBOARD } ui_page_t;
 typedef enum { MODE_HUE=0, MODE_BRIGHTNESS } light_mode_t;
+typedef enum { INTEG_MATTER=0, INTEG_HA, INTEG_RAINMAKER } integ_mode_t;
 static ui_page_t s_page = PAGE_LIGHT;
 static bool s_light_on = true;
 static int s_hue = 60;
 static int s_brightness = 60;
 static light_mode_t s_mode = MODE_HUE;
+static integ_mode_t s_integration = INTEG_MATTER;
 
 static lv_color_t hsv_to_color(int h, int s, int v) {
     int c = (v * s) / 100;
@@ -22,6 +24,22 @@ static lv_color_t hsv_to_color(int h, int s, int v) {
     if(h<60){r=c;g=x;b=0;} else if(h<120){r=x;g=c;b=0;} else if(h<180){r=0;g=c;b=x;} else if(h<240){r=0;g=x;b=c;} else if(h<300){r=x;g=0;b=c;} else {r=c;g=0;b=x;}
     r = (r + m) * 255 / 100; g = (g + m) * 255 / 100; b = (b + m) * 255 / 100;
     return lv_color_make(r,g,b);
+}
+void ui_extra_get_arc_rgb(uint8_t* r, uint8_t* g, uint8_t* b) {
+    int H = (s_hue % 360);
+    int S = s_light_on ? 100 : 0;
+    int V = s_light_on ? s_brightness : 50;
+    int C = (V * S) / 100;
+    int X = C * (100 - abs((H/60)%2*100 - 100)) / 100;
+    int m = V - C;
+    int rr=0,gg=0,bb=0;
+    if(H<60){rr=C;gg=X;bb=0;} else if(H<120){rr=X;gg=C;bb=0;} else if(H<180){rr=0;gg=C;bb=X;} else if(H<240){rr=0;gg=X;bb=C;} else if(H<300){rr=X;gg=0;bb=C;} else {rr=C;gg=0;bb=X;}
+    rr = (rr + m) * 255 / 100;
+    gg = (gg + m) * 255 / 100;
+    bb = (bb + m) * 255 / 100;
+    *r = (uint8_t)rr;
+    *g = (uint8_t)gg;
+    *b = (uint8_t)bb;
 }
 
 static void light_apply(void) {
@@ -56,6 +74,12 @@ static void light_apply(void) {
     lv_obj_set_style_text_color(ui_LabelColorTemAddScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui_LabelColorTemCheckScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_color(ui_LabelColorTemOnOffScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    switch (s_integration) {
+        case INTEG_MATTER: lv_label_set_text(ui_LabelColorTemModeScreenLight, "Matter"); break;
+        case INTEG_HA: lv_label_set_text(ui_LabelColorTemModeScreenLight, "HA"); break;
+        case INTEG_RAINMAKER: lv_label_set_text(ui_LabelColorTemModeScreenLight, "Rainmaker"); break;
+    }
+    lv_obj_set_style_text_color(ui_LabelColorTemModeScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
 }
 
 static void light_fullscreen(void) {
@@ -109,10 +133,10 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (event != BSP_BUTTON_EVENT_PRESS_UP) return;
     if (bsp_display_lock(0)) {
         if (source == BSP_INPUT_TOUCH_LEFT) {
-            if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
-            else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
-            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
-            else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("light");
+            if (s_page==PAGE_LIGHT) ui_extra_show_screen("keyboard");
+            else if (s_page==PAGE_AIRCON) ui_extra_show_screen("light");
+            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("aircon");
+            else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("music");
             bsp_display_unlock();
             return;
         } else if (source == BSP_INPUT_TOUCH_RIGHT) {
