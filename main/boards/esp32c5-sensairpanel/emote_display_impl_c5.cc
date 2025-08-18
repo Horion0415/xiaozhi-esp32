@@ -114,7 +114,7 @@ static void InitializeGraphics(lv_display_t* disp, gfx_handle_t* engine_handle)
 
     gfx_cfg.task.task_stack_caps = MALLOC_CAP_SPIRAM;
     gfx_cfg.task.task_affinity = 0;
-    gfx_cfg.task.task_priority = 5;
+    gfx_cfg.task.task_priority = 3;
     gfx_cfg.task.task_stack = 20 * 1024;
     size_t fb_size = (size_t)DISPLAY_WIDTH * (size_t)DISPLAY_HEIGHT * 2;
     void* ps1 = heap_caps_malloc(fb_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -172,7 +172,7 @@ static void InitializeLabels(gfx_handle_t engine_handle)
     gfx_label_set_color(obj_label_tips, GFX_COLOR_HEX(0xFFFFFF));
     gfx_label_set_text_align(obj_label_tips, GFX_TEXT_ALIGN_LEFT);
     gfx_label_set_long_mode(obj_label_tips, GFX_LABEL_LONG_SCROLL);
-    gfx_label_set_scroll_speed(obj_label_tips, 20);
+    gfx_label_set_scroll_speed(obj_label_tips, 80);
     gfx_label_set_scroll_loop(obj_label_tips, true);
 
     obj_label_time = gfx_label_create(engine_handle);
@@ -385,10 +385,8 @@ void EmoteDisplay::SetEmotion(const char* emotion)
 void EmoteDisplay::SetChatMessage(const char* role, const char* content)
 {
     engine_->Lock();
-    if (content && strlen(content) > 0) {
-        gfx_label_set_text(obj_label_tips, content);
-        SetUIDisplayMode(UIDisplayMode::SHOW_TIPS);
-    }
+    gfx_label_set_text(obj_label_tips, "说话中...");
+    SetUIDisplayMode(UIDisplayMode::SHOW_TIPS);
     engine_->Unlock();
 }
 
