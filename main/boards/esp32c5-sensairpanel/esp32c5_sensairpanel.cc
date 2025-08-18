@@ -18,6 +18,8 @@
 #include "app/display_mode_controller.h"
 #include "app/app_input_controller.h"
 #include "device_state_event.h"
+#include "ui/ui.h"
+#include "ui/ui_extra.h"
 
 LV_FONT_DECLARE(font_puhui_16_4);
 LV_FONT_DECLARE(font_awesome_16_4);
@@ -73,6 +75,12 @@ private:
         g_display_mode = new DisplayModeController(lv_disp);
         g_input_ctrl = new AppInputController(on_touch_down, on_touch_up);
         AppInputController::RegisterCallbacks(g_input_ctrl);
+        static bool ui_inited = false;
+        if (!ui_inited) {
+            ui_init();
+            ui_extra_init();
+            ui_inited = true;
+        }
     }
 
     void InitBacklight() {

@@ -227,6 +227,17 @@ file(GLOB BOARD_SOURCES
 )
 list(APPEND SOURCES ${BOARD_SOURCES})
 
+# 合并 SquareLine UI 源码到 main 组件
+file(GLOB UI_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/screens/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/components/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/images/*.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/fonts/*.c
+)
+list(APPEND SOURCES ${UI_SOURCES})
+list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ui)
+
 # Extra sources required by specific boards
 if(BOARD_TYPE STREQUAL "esp32c5-sensairpanel")
     list(APPEND SOURCES
