@@ -99,29 +99,37 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (!g_inited) return;
     if (event != BSP_BUTTON_EVENT_PRESS_UP) return;
     if (bsp_display_lock(0)) {
+        if (source == BSP_INPUT_TOUCH_LEFT) {
+            if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
+            else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
+            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
+            else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("light");
+            bsp_display_unlock();
+            return;
+        } else if (source == BSP_INPUT_TOUCH_RIGHT) {
+            if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
+            else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
+            else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
+            else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("light");
+            bsp_display_unlock();
+            return;
+        }
         if (s_page == PAGE_LIGHT) {
         switch (source) {
-            case BSP_INPUT_TOUCH_LEFT:
-                if (s_mode==MODE_HUE) s_hue = (s_hue+360-10)%360; else s_brightness = s_brightness>0? s_brightness-5:0;
-                ESP_LOGI(TAG, "light dec: hue=%d bri=%d", s_hue, s_brightness);
-                light_apply();
-                break;
-            case BSP_INPUT_TOUCH_RIGHT:
-                if (s_mode==MODE_HUE) s_hue = (s_hue+10)%360; else s_brightness = s_brightness<100? s_brightness+5:100;
-                ESP_LOGI(TAG, "light inc: hue=%d bri=%d", s_hue, s_brightness);
-                light_apply();
-                break;
             case BSP_INPUT_TOUCH_TOP_LEFT:
+                if (!s_light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 if (s_mode==MODE_HUE) s_hue = (s_hue+360-10)%360; else s_brightness = s_brightness>0? s_brightness-5:0;
                 ESP_LOGI(TAG, "light TL: hue=%d bri=%d", s_hue, s_brightness);
                 light_apply();
                 break;
             case BSP_INPUT_TOUCH_TOP_RIGHT:
+                if (!s_light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 if (s_mode==MODE_HUE) s_hue = (s_hue+10)%360; else s_brightness = s_brightness<100? s_brightness+5:100;
                 ESP_LOGI(TAG, "light TR: hue=%d bri=%d", s_hue, s_brightness);
                 light_apply();
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_LEFT:
+                if (!s_light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 s_mode = (s_mode==MODE_HUE)? MODE_BRIGHTNESS: MODE_HUE;
                 ESP_LOGI(TAG, "light toggle mode: %d", s_mode);
                 light_apply();
@@ -133,16 +141,6 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 break;
             default: break;
         }
-        } else {
-            if (source == BSP_INPUT_TOUCH_LEFT) {
-                if (s_page==PAGE_AIRCON) ui_extra_show_screen("light");
-                else if (s_page==PAGE_MUSIC) ui_extra_show_screen("aircon");
-                else if (s_page==PAGE_KEYBOARD) ui_extra_show_screen("music");
-            } else if (source == BSP_INPUT_TOUCH_RIGHT) {
-                if (s_page==PAGE_LIGHT) ui_extra_show_screen("aircon");
-                else if (s_page==PAGE_AIRCON) ui_extra_show_screen("music");
-                else if (s_page==PAGE_MUSIC) ui_extra_show_screen("keyboard");
-            }
         }
         bsp_display_unlock();
     }
