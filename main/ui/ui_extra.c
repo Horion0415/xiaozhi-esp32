@@ -30,23 +30,32 @@ static void light_apply(void) {
     int v = s_light_on ? s_brightness : 50;
     lv_color_t col = hsv_to_color(s_hue%360, s, v);
     lv_color_t gray = lv_color_hex(0x808080);
+    lv_color_t txt_on = lv_color_hex(0xFFFFFF);
     bool on = s_light_on;
     lv_obj_set_style_arc_color(ui_ArcColorTemScreenLight, on?col:gray, LV_PART_INDICATOR|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(ui_LabelColorTemScreenLight, on?col:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(ui_LabeColorTemRatioScreenLight, on?col:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
     char buf[8];
     if (s_mode==MODE_HUE) {
         lv_arc_set_range(ui_ArcColorTemScreenLight, 0, 360);
         lv_arc_set_value(ui_ArcColorTemScreenLight, s_hue);
-        lv_label_set_text(ui_LabelColorTemScreenLight, "HUE");
+        lv_label_set_text(ui_LabelColorTemScreenLight, "CCT");
+        lv_label_set_text(ui_LabelColorTemDecScreenLight, "CCT-");
+        lv_label_set_text(ui_LabelColorTemAddScreenLight, "CCT+");
         snprintf(buf,sizeof(buf),"%d", s_hue);
     } else {
         lv_arc_set_range(ui_ArcColorTemScreenLight, 0, 100);
         lv_arc_set_value(ui_ArcColorTemScreenLight, s_brightness);
-        lv_label_set_text(ui_LabelColorTemScreenLight, "BRI");
+        lv_label_set_text(ui_LabelColorTemScreenLight, "DIM");
+        lv_label_set_text(ui_LabelColorTemDecScreenLight, "DIM-");
+        lv_label_set_text(ui_LabelColorTemAddScreenLight, "DIM+");
         snprintf(buf,sizeof(buf),"%d", s_brightness);
     }
     lv_label_set_text(ui_LabeColorTemRatioScreenLight, buf);
+    lv_obj_set_style_text_color(ui_LabelColorTemScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabeColorTemRatioScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelColorTemDecScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelColorTemAddScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelColorTemCheckScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelColorTemOnOffScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
 }
 
 static void light_fullscreen(void) {
