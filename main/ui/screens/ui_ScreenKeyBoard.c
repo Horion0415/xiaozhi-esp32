@@ -7,12 +7,19 @@
 
 lv_obj_t * ui_ScreenKeyBoard = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardDo = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardDo = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardRe = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardRe = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardMi = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardMi = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardFa = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardFa = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardSo = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardSo = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardLa = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardLa = NULL;
 lv_obj_t * ui_ButtonScreenKeyBoardTi = NULL;
+lv_obj_t * ui_LabelButtonScreenKeyBoardTi = NULL;
 lv_obj_t * ui_ImageScreenKeyBoard = NULL;
 // event funtions
 
@@ -41,6 +48,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardDo, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardDo, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    ui_LabelButtonScreenKeyBoardDo = lv_label_create(ui_ButtonScreenKeyBoardDo);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardDo, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardDo, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardDo, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardDo, "Do");
+
     ui_ButtonScreenKeyBoardRe = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardRe, 40);
     lv_obj_set_height(ui_ButtonScreenKeyBoardRe, 40);
@@ -56,6 +69,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_opa(ui_ButtonScreenKeyBoardRe, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardRe, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardRe, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+    ui_LabelButtonScreenKeyBoardRe = lv_label_create(ui_ButtonScreenKeyBoardRe);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardRe, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardRe, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardRe, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardRe, "Re");
 
     ui_ButtonScreenKeyBoardMi = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardMi, 40);
@@ -73,6 +92,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardMi, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardMi, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    ui_LabelButtonScreenKeyBoardMi = lv_label_create(ui_ButtonScreenKeyBoardMi);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardMi, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardMi, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardMi, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardMi, "Mi");
+
     ui_ButtonScreenKeyBoardFa = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardFa, 40);
     lv_obj_set_height(ui_ButtonScreenKeyBoardFa, 40);
@@ -88,6 +113,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_opa(ui_ButtonScreenKeyBoardFa, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardFa, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardFa, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+    ui_LabelButtonScreenKeyBoardFa = lv_label_create(ui_ButtonScreenKeyBoardFa);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardFa, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardFa, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardFa, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardFa, "Fa");
 
     ui_ButtonScreenKeyBoardSo = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardSo, 40);
@@ -105,6 +136,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardSo, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardSo, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    ui_LabelButtonScreenKeyBoardSo = lv_label_create(ui_ButtonScreenKeyBoardSo);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardSo, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardSo, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardSo, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardSo, "So");
+
     ui_ButtonScreenKeyBoardLa = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardLa, 40);
     lv_obj_set_height(ui_ButtonScreenKeyBoardLa, 40);
@@ -121,6 +158,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardLa, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardLa, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
 
+    ui_LabelButtonScreenKeyBoardLa = lv_label_create(ui_ButtonScreenKeyBoardLa);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardLa, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardLa, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardLa, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardLa, "La");
+
     ui_ButtonScreenKeyBoardTi = lv_button_create(ui_ScreenKeyBoard);
     lv_obj_set_width(ui_ButtonScreenKeyBoardTi, 40);
     lv_obj_set_height(ui_ButtonScreenKeyBoardTi, 40);
@@ -136,6 +179,12 @@ void ui_ScreenKeyBoard_screen_init(void)
     lv_obj_set_style_shadow_opa(ui_ButtonScreenKeyBoardTi, 255, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_width(ui_ButtonScreenKeyBoardTi, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
     lv_obj_set_style_shadow_spread(ui_ButtonScreenKeyBoardTi, 5, LV_PART_MAIN | LV_STATE_FOCUSED);
+
+    ui_LabelButtonScreenKeyBoardTi = lv_label_create(ui_ButtonScreenKeyBoardTi);
+    lv_obj_set_width(ui_LabelButtonScreenKeyBoardTi, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_LabelButtonScreenKeyBoardTi, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_align(ui_LabelButtonScreenKeyBoardTi, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LabelButtonScreenKeyBoardTi, "Ti");
 
     ui_ImageScreenKeyBoard = lv_image_create(ui_ScreenKeyBoard);
     lv_image_set_src(ui_ImageScreenKeyBoard, &ui_img_music_icon_png);
@@ -154,12 +203,19 @@ void ui_ScreenKeyBoard_screen_destroy(void)
     // NULL screen variables
     ui_ScreenKeyBoard = NULL;
     ui_ButtonScreenKeyBoardDo = NULL;
+    ui_LabelButtonScreenKeyBoardDo = NULL;
     ui_ButtonScreenKeyBoardRe = NULL;
+    ui_LabelButtonScreenKeyBoardRe = NULL;
     ui_ButtonScreenKeyBoardMi = NULL;
+    ui_LabelButtonScreenKeyBoardMi = NULL;
     ui_ButtonScreenKeyBoardFa = NULL;
+    ui_LabelButtonScreenKeyBoardFa = NULL;
     ui_ButtonScreenKeyBoardSo = NULL;
+    ui_LabelButtonScreenKeyBoardSo = NULL;
     ui_ButtonScreenKeyBoardLa = NULL;
+    ui_LabelButtonScreenKeyBoardLa = NULL;
     ui_ButtonScreenKeyBoardTi = NULL;
+    ui_LabelButtonScreenKeyBoardTi = NULL;
     ui_ImageScreenKeyBoard = NULL;
 
 }

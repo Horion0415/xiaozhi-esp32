@@ -15,12 +15,19 @@ extern void ui_ScreenKeyBoard_screen_init(void);
 extern void ui_ScreenKeyBoard_screen_destroy(void);
 extern lv_obj_t * ui_ScreenKeyBoard;
 extern lv_obj_t * ui_ButtonScreenKeyBoardDo;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardDo;
 extern lv_obj_t * ui_ButtonScreenKeyBoardRe;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardRe;
 extern lv_obj_t * ui_ButtonScreenKeyBoardMi;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardMi;
 extern lv_obj_t * ui_ButtonScreenKeyBoardFa;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardFa;
 extern lv_obj_t * ui_ButtonScreenKeyBoardSo;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardSo;
 extern lv_obj_t * ui_ButtonScreenKeyBoardLa;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardLa;
 extern lv_obj_t * ui_ButtonScreenKeyBoardTi;
+extern lv_obj_t * ui_LabelButtonScreenKeyBoardTi;
 extern lv_obj_t * ui_ImageScreenKeyBoard;
 // CUSTOM VARIABLES
 

@@ -19,10 +19,10 @@ void IrAcController::Init() {
 void IrAcController::SetBrand(ir_brand_t brand) {
     brand_ = brand;
     switch (brand) {
-        case IR_BRAND_MIDEA: brand_name_ = "美的"; model_id_ = 12260;  strncpy(model_name_, "12260", sizeof(model_name_) - 1); break;
-        case IR_BRAND_HAIER: brand_name_ = "海尔"; model_id_ = 667;  strncpy(model_name_, "667", sizeof(model_name_) - 1); break;
+        case IR_BRAND_MIDEA: brand_name_ = "美的"; model_id_ = 3387;  strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
+        case IR_BRAND_HAIER: brand_name_ = "海尔"; model_id_ = 77;  strncpy(model_name_, "77", sizeof(model_name_) - 1); break;
         case IR_BRAND_GREE:  brand_name_ = "格力";  model_id_ = 10020; strncpy(model_name_, "10020", sizeof(model_name_) - 1); break;
-        default: brand_name_ = "美的"; model_id_ = 12260; strncpy(model_name_, "12260", sizeof(model_name_) - 1); break;
+        default: brand_name_ = "美的"; model_id_ = 3387; strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
     }
 }
 
