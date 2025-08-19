@@ -5,6 +5,7 @@
 #include "screens/ui_ScreenLight.h"
 #include "screens/ui_ScreenKeyBoard.h"
 #include "bsp/display.h"
+#include "bsp/esp32_c5_sensairpanel.h"
 #include "app/ir_ac_bridge.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
@@ -240,19 +241,24 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
             if (event == BSP_BUTTON_EVENT_PRESS_DOWN || event == BSP_BUTTON_EVENT_PRESS_UP) {
                 lv_obj_t* btn = NULL;
                 uint32_t color = 0;
+                const char* path = NULL;
                 switch (source) {
-                    case BSP_INPUT_TOUCH_TOP_LEFT: btn = ui_ButtonScreenKeyBoardDo; color = 0xFF3B30; break;
-                    case BSP_INPUT_TOUCH_LEFT: btn = ui_ButtonScreenKeyBoardRe; color = 0xFF9500; break;
-                    case BSP_INPUT_TOUCH_BOTTOM_LEFT: btn = ui_ButtonScreenKeyBoardMi; color = 0xFFCC00; break;
-                    case BSP_INPUT_TOUCH_TOP_RIGHT: btn = ui_ButtonScreenKeyBoardFa; color = 0x34C759; break;
-                    case BSP_INPUT_TOUCH_RIGHT: btn = ui_ButtonScreenKeyBoardSo; color = 0x5AC8FA; break;
-                    case BSP_INPUT_TOUCH_BOTTOM_RIGHT: btn = ui_ButtonScreenKeyBoardLa; color = 0x007AFF; break;
+                    case BSP_INPUT_TOUCH_TOP_LEFT: btn = ui_ButtonScreenKeyBoardDo; color = 0xFF3B30; path = BSP_SPIFFS_MOUNT_POINT "/piano_do.mp3"; break;
+                    case BSP_INPUT_TOUCH_LEFT: btn = ui_ButtonScreenKeyBoardRe; color = 0xFF9500; path = BSP_SPIFFS_MOUNT_POINT "/piano_re.mp3"; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_LEFT: btn = ui_ButtonScreenKeyBoardMi; color = 0xFFCC00; path = BSP_SPIFFS_MOUNT_POINT "/piano_mi.mp3"; break;
+                    case BSP_INPUT_TOUCH_TOP_RIGHT: btn = ui_ButtonScreenKeyBoardFa; color = 0x34C759; path = BSP_SPIFFS_MOUNT_POINT "/piano_fa.mp3"; break;
+                    case BSP_INPUT_TOUCH_RIGHT: btn = ui_ButtonScreenKeyBoardSo; color = 0x5AC8FA; path = BSP_SPIFFS_MOUNT_POINT "/piano_so.mp3"; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_RIGHT: btn = ui_ButtonScreenKeyBoardLa; color = 0x007AFF; path = BSP_SPIFFS_MOUNT_POINT "/piano_la.mp3"; break;
                     default: break;
                 }
                 if (btn) {
                     if (event == BSP_BUTTON_EVENT_PRESS_DOWN) {
                         lv_obj_add_state(btn, LV_STATE_FOCUSED);
                         bsp_led_set_for_touch(source, color);
+                        if (path) {
+                            bsp_audio_player_init();
+                            bsp_audio_play_file(path);
+                        }
                     } else {
                         lv_obj_clear_state(btn, LV_STATE_FOCUSED);
                         bsp_led_clear_for_touch(source);

@@ -405,6 +405,12 @@ spiffs_create_partition_assets(
 )
 endif()
 
+set(AUDIO_SPIFFS_SRC_DIR "${PROJECT_DIR}/spiffs")
+if(EXISTS ${AUDIO_SPIFFS_SRC_DIR})
+include($ENV{IDF_PATH}/components/spiffs/project_include.cmake)
+spiffs_create_partition_image(storage ${AUDIO_SPIFFS_SRC_DIR} FLASH_IN_PROJECT)
+endif()
+
 if(CONFIG_BOARD_TYPE_ECHOEAR OR CONFIG_BOARD_TYPE_ESP32C5_SENSAIRPANEL)
 
 idf_build_get_property(build_components BUILD_COMPONENTS)

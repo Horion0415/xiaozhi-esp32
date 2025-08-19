@@ -627,6 +627,9 @@ esp_err_t bsp_led_matrix_stop_effect(void)
 /* Audio */
 esp_codec_dev_handle_t bsp_audio_codec_speaker_init(void)
 {
+    if (speaker_dev_handle) {
+        return speaker_dev_handle;
+    }
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.auto_clear = true;
     BSP_ERROR_CHECK_RETURN_NULL(i2s_new_channel(&chan_cfg, &i2s_tx_chan, NULL));

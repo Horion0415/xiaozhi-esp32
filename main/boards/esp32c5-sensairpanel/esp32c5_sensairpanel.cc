@@ -20,6 +20,7 @@
 #include "device_state_event.h"
 #include "ui/ui.h"
 #include "ui/ui_extra.h"
+#include "bsp/esp32_c5_sensairpanel.h"
 
 LV_FONT_DECLARE(font_puhui_16_4);
 LV_FONT_DECLARE(font_awesome_16_4);
@@ -104,6 +105,7 @@ public:
         InitPowerRail();
         InitDisplay();
         InitBacklight();
+        bsp_spiffs_mount();
         if (display_) {
             static_cast<anim::EmoteDisplay*>(display_)->EnterGfxMode();
         }

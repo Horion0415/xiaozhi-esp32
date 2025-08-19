@@ -64,7 +64,7 @@
 
 #define BSP_AUDIO_VOLUME_MIN      (0)
 #define BSP_AUDIO_VOLUME_MAX      (100)
-#define BSP_AUDIO_VOLUME_DEFAULT  (20)
+#define BSP_AUDIO_VOLUME_DEFAULT  (100)
 
 /* Touch */
 #define BSP_TOUCH_INT             (GPIO_NUM_6)
