@@ -9,6 +9,8 @@ static bool g_inited = false;
 typedef enum { PAGE_LIGHT=0, PAGE_AIRCON, PAGE_MUSIC, PAGE_KEYBOARD } ui_page_t;
 typedef enum { MODE_HUE=0, MODE_BRIGHTNESS } light_mode_t;
 typedef enum { INTEG_MATTER=0, INTEG_HA, INTEG_RAINMAKER } integ_mode_t;
+typedef enum { AIR_COOL=0, AIR_HEAT } air_mode_t;
+typedef enum { BRAND_MIDEA=0, BRAND_GREE, BRAND_HAIER } air_brand_t;
 static struct {
     ui_page_t page;
     bool light_on;
@@ -17,12 +19,20 @@ static struct {
     light_mode_t mode;
     integ_mode_t integration;
     bool bl_longpress;
-} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false };
+    bool air_on;
+    air_mode_t air_mode;
+    int air_temp;
+    bool ac_bl_longpress;
+    air_brand_t air_brand;
+} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA };
 static const int HUE_STEP = 10;
 static const int BRI_STEP = 5;
 static const int BRI_MIN = 0;
 static const int BRI_MAX = 100;
-static bool s_bl_longpress = false;
+static const int AIR_TEMP_MIN = 16;
+static const int AIR_TEMP_MAX = 30;
+static const int AIR_TEMP_STEP = 1;
+ 
 
 static lv_color_t hsv_to_color(int h, int s, int v) {
     int c = (v * s) / 100;
@@ -34,6 +44,13 @@ static lv_color_t hsv_to_color(int h, int s, int v) {
     return lv_color_make(r,g,b);
 }
 void ui_extra_get_arc_rgb(uint8_t* r, uint8_t* g, uint8_t* b) {
+    if (s_state.page == PAGE_AIRCON) {
+        uint32_t c = s_state.air_on ? (s_state.air_mode==AIR_COOL ? 0x00BFFF : 0xFF4D4D) : 0x808080;
+        *r = (uint8_t)((c >> 16) & 0xFF);
+        *g = (uint8_t)((c >> 8) & 0xFF);
+        *b = (uint8_t)(c & 0xFF);
+        return;
+    }
     int H = (s_state.hue % 360);
     int S = s_state.light_on ? 100 : 0;
     int V = s_state.light_on ? s_state.brightness : 50;
@@ -101,6 +118,43 @@ static void light_fullscreen_nolock(void) {
     lv_obj_set_align(ui_ImageColorTemScreenLight, LV_ALIGN_TOP_LEFT);
 }
 
+static void aircon_fullscreen_nolock(void) {
+    if (!ui_ImageScreenAirCon) return;
+    lv_display_t* d = lv_display_get_default();
+    if (!d) return;
+    int w = lv_display_get_horizontal_resolution(d);
+    int h = lv_display_get_vertical_resolution(d);
+    ESP_LOGI(TAG, "set aircon bg to full screen %dx%d", w, h);
+    lv_obj_set_size(ui_ImageScreenAirCon, w, h);
+    lv_obj_set_align(ui_ImageScreenAirCon, LV_ALIGN_TOP_LEFT);
+}
+
+static void aircon_apply_nolock(void) {
+    if (!ui_ScreenAirCon) return;
+    int minv = AIR_TEMP_MIN, maxv = AIR_TEMP_MAX;
+    lv_color_t blue = lv_color_hex(0x00BFFF);
+    lv_color_t red = lv_color_hex(0xFF4D4D);
+    lv_color_t gray = lv_color_hex(0x808080);
+    lv_color_t txt_on = lv_color_hex(0xFFFFFF);
+    bool on = s_state.air_on;
+    lv_obj_set_style_arc_color(ui_ArcScreenAirCon, on ? (s_state.air_mode==AIR_COOL?blue:red) : gray, LV_PART_INDICATOR|LV_STATE_DEFAULT);
+    lv_arc_set_range(ui_ArcScreenAirCon, minv, maxv);
+    lv_arc_set_value(ui_ArcScreenAirCon, s_state.air_temp);
+    lv_label_set_text(ui_LabelModeScreenAirCon, s_state.air_mode==AIR_COOL?"COOL":"HEAT");
+    char tbuf[8];
+    snprintf(tbuf,sizeof(tbuf),"%d℃", s_state.air_temp);
+    lv_label_set_text(ui_LabeModeRatioScreenAirCon, tbuf);
+    const char* bname = s_state.air_brand==BRAND_MIDEA?"Midea":(s_state.air_brand==BRAND_GREE?"Gree":"Haier");
+    lv_label_set_text(ui_LabelColorTemBrandScreenAirCon, bname);
+    lv_obj_set_style_text_color(ui_LabelModeScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabeModeRatioScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelModeDecScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelModeAddScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelModeCheckScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelModeOnOffScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_LabelColorTemBrandScreenAirCon, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+}
+
 static void show_screen_nolock(const char* name) {
     if (!name) return;
     ESP_LOGI(TAG, "ui_extra_show_screen: %s", name);
@@ -112,6 +166,8 @@ static void show_screen_nolock(const char* name) {
     } else if (strcmp(name, "aircon") == 0) {
         lv_disp_load_scr(ui_ScreenAirCon);
         s_state.page = PAGE_AIRCON;
+        aircon_fullscreen_nolock();
+        aircon_apply_nolock();
     } else if (strcmp(name, "music") == 0) {
         lv_disp_load_scr(ui_ScreenMusic);
         s_state.page = PAGE_MUSIC;
@@ -149,6 +205,11 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 if (s_state.integration == INTEG_MATTER) s_state.integration = INTEG_HA; else if (s_state.integration == INTEG_HA) s_state.integration = INTEG_RAINMAKER; else s_state.integration = INTEG_MATTER;
                 ESP_LOGI(TAG, "integration mode: %d", s_state.integration);
                 light_apply_nolock();
+            } else if (s_state.page == PAGE_AIRCON && source == BSP_INPUT_TOUCH_BOTTOM_LEFT) {
+                s_state.ac_bl_longpress = true;
+                if (s_state.air_brand == BRAND_MIDEA) s_state.air_brand = BRAND_GREE; else if (s_state.air_brand == BRAND_GREE) s_state.air_brand = BRAND_HAIER; else s_state.air_brand = BRAND_MIDEA;
+                ESP_LOGI(TAG, "aircon brand: %d", s_state.air_brand);
+                aircon_apply_nolock();
             }
             bsp_display_unlock();
             return;
@@ -197,6 +258,34 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 break;
             default: break;
         }
+        } else if (s_state.page == PAGE_AIRCON) {
+        switch (source) {
+            case BSP_INPUT_TOUCH_TOP_LEFT:
+                if (!s_state.air_on) { ESP_LOGI(TAG, "aircon is off, ignore value changes"); break; }
+                if (s_state.air_temp > AIR_TEMP_MIN) s_state.air_temp -= AIR_TEMP_STEP;
+                ESP_LOGI(TAG, "aircon TL: temp=%d", s_state.air_temp);
+                aircon_apply_nolock();
+                break;
+            case BSP_INPUT_TOUCH_TOP_RIGHT:
+                if (!s_state.air_on) { ESP_LOGI(TAG, "aircon is off, ignore value changes"); break; }
+                if (s_state.air_temp < AIR_TEMP_MAX) s_state.air_temp += AIR_TEMP_STEP;
+                ESP_LOGI(TAG, "aircon TR: temp=%d", s_state.air_temp);
+                aircon_apply_nolock();
+                break;
+            case BSP_INPUT_TOUCH_BOTTOM_LEFT:
+                if (s_state.ac_bl_longpress) { s_state.ac_bl_longpress = false; ESP_LOGI(TAG, "skip aircon mode toggle after long press"); break; }
+                if (!s_state.air_on) { ESP_LOGI(TAG, "aircon is off, ignore mode changes"); break; }
+                s_state.air_mode = (s_state.air_mode==AIR_COOL)? AIR_HEAT: AIR_COOL;
+                ESP_LOGI(TAG, "aircon toggle mode: %d", s_state.air_mode);
+                aircon_apply_nolock();
+                break;
+            case BSP_INPUT_TOUCH_BOTTOM_RIGHT:
+                s_state.air_on = !s_state.air_on;
+                ESP_LOGI(TAG, "aircon onoff: %d", s_state.air_on);
+                aircon_apply_nolock();
+                break;
+            default: break;
+        }
         }
         bsp_display_unlock();
     }
@@ -214,7 +303,8 @@ void ui_extra_on_enter_lvgl(void) {
             light_fullscreen_nolock();
             light_apply_nolock();
         } else if (s_state.page == PAGE_AIRCON) {
-            show_screen_nolock("aircon");
+            aircon_fullscreen_nolock();
+            aircon_apply_nolock();
         } else if (s_state.page == PAGE_MUSIC) {
             show_screen_nolock("music");
         } else if (s_state.page == PAGE_KEYBOARD) {
