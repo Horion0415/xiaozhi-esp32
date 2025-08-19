@@ -135,7 +135,7 @@ static void aircon_apply_nolock(void) {
     lv_color_t blue = lv_color_hex(0x00BFFF);
     lv_color_t red = lv_color_hex(0xFF4D4D);
     lv_color_t gray = lv_color_hex(0x808080);
-    lv_color_t txt_on = lv_color_hex(0xFFFFFF);
+    lv_color_t txt_on = lv_color_hex(0x333333);
     bool on = s_state.air_on;
     lv_obj_set_style_arc_color(ui_ArcScreenAirCon, on ? (s_state.air_mode==AIR_COOL?blue:red) : gray, LV_PART_INDICATOR|LV_STATE_DEFAULT);
     lv_arc_set_range(ui_ArcScreenAirCon, minv, maxv);
