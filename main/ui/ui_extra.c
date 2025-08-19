@@ -7,6 +7,10 @@
 #include "bsp/display.h"
 #include "bsp/esp32_c5_sensairpanel.h"
 #include <esp_timer.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include <string.h>
 #include "app/ir_ac_bridge.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
@@ -33,6 +37,17 @@ static struct {
 } s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA, 0, true };
 static esp_timer_handle_t s_kb_audio_timer = NULL;
 static void kb_audio_timer_cb(void* arg) { (void)arg; bsp_wav_stop(); }
+static TaskHandle_t s_kb_audio_task = NULL;
+static QueueHandle_t s_kb_audio_queue = NULL;
+static void kb_audio_task(void* arg) {
+    char path[128];
+    for(;;){
+        if (xQueueReceive(s_kb_audio_queue, &path, portMAX_DELAY)) {
+            bsp_wav_stop();
+            bsp_wav_play_file(path);
+        }
+    }
+}
 static const int HUE_STEP = 10;
 static const int BRI_STEP = 5;
 static const int BRI_MIN = 0;
@@ -215,6 +230,8 @@ void ui_extra_init(void) {
     s_state.page = PAGE_LIGHT;
     light_fullscreen_nolock();
     light_apply_nolock();
+    if (!s_kb_audio_queue) s_kb_audio_queue = xQueueCreate(1, sizeof(char[128]));
+    if (!s_kb_audio_task) xTaskCreate(kb_audio_task, "kb_audio_task", 4096, NULL, 3, &s_kb_audio_task);
 }
 void ui_extra_set_status(const char* text) {
     if (!g_inited) return;
@@ -259,8 +276,10 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                         lv_obj_add_state(btn, LV_STATE_FOCUSED);
                         bsp_led_set_for_touch(source, color);
                         if (path) {
-                            bsp_wav_stop();
-                            bsp_wav_play_file(path);
+                            char tmp[128];
+                            strncpy(tmp, path, sizeof(tmp)-1);
+                            tmp[sizeof(tmp)-1] = '\0';
+                            if (s_kb_audio_queue) xQueueOverwrite(s_kb_audio_queue, &tmp);
                         }
                         if (s_kb_audio_timer) esp_timer_stop(s_kb_audio_timer);
                     } else {
