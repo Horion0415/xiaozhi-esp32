@@ -263,12 +263,12 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 uint32_t color = 0;
                 const char* path = NULL;
                 switch (source) {
-                    case BSP_INPUT_TOUCH_TOP_LEFT: btn = ui_ButtonScreenKeyBoardDo; color = 0xFF3B30; path = BSP_SPIFFS_MOUNT_POINT "/piano_do.wav"; break;
-                    case BSP_INPUT_TOUCH_LEFT: btn = ui_ButtonScreenKeyBoardRe; color = 0xFF9500; path = BSP_SPIFFS_MOUNT_POINT "/piano_re.wav"; break;
-                    case BSP_INPUT_TOUCH_BOTTOM_LEFT: btn = ui_ButtonScreenKeyBoardMi; color = 0xFFCC00; path = BSP_SPIFFS_MOUNT_POINT "/piano_mi.wav"; break;
-                    case BSP_INPUT_TOUCH_TOP_RIGHT: btn = ui_ButtonScreenKeyBoardFa; color = 0x34C759; path = BSP_SPIFFS_MOUNT_POINT "/piano_fa.wav"; break;
-                    case BSP_INPUT_TOUCH_RIGHT: btn = ui_ButtonScreenKeyBoardSo; color = 0x5AC8FA; path = BSP_SPIFFS_MOUNT_POINT "/piano_so.wav"; break;
-                    case BSP_INPUT_TOUCH_BOTTOM_RIGHT: btn = ui_ButtonScreenKeyBoardLa; color = 0x007AFF; path = BSP_SPIFFS_MOUNT_POINT "/piano_la.wav"; break;
+                    case BSP_INPUT_TOUCH_TOP_LEFT: btn = ui_ButtonScreenKeyBoardDo; color = 0xFF3B30; path = BSP_SPIFFS_MOUNT_POINT "/do.wav"; break;
+                    case BSP_INPUT_TOUCH_LEFT: btn = ui_ButtonScreenKeyBoardRe; color = 0xFF9500; path = BSP_SPIFFS_MOUNT_POINT "/re.wav"; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_LEFT: btn = ui_ButtonScreenKeyBoardMi; color = 0xFFCC00; path = BSP_SPIFFS_MOUNT_POINT "/mi.wav"; break;
+                    case BSP_INPUT_TOUCH_TOP_RIGHT: btn = ui_ButtonScreenKeyBoardFa; color = 0x34C759; path = BSP_SPIFFS_MOUNT_POINT "/fa.wav"; break;
+                    case BSP_INPUT_TOUCH_RIGHT: btn = ui_ButtonScreenKeyBoardSo; color = 0x5AC8FA; path = BSP_SPIFFS_MOUNT_POINT "/so.wav"; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_RIGHT: btn = ui_ButtonScreenKeyBoardLa; color = 0x007AFF; path = BSP_SPIFFS_MOUNT_POINT "/la.wav"; break;
                     default: break;
                 }
                 if (btn) {
