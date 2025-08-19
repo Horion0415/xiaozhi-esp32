@@ -30,6 +30,9 @@ extern lv_obj_t * ui____initial_actions0;
 LV_IMG_DECLARE(ui_img_back_png);    // assets/back.png
 LV_IMG_DECLARE(ui_img_cloud_back_png);    // assets/cloud_back.png
 LV_IMG_DECLARE(ui_img_music_icon_png);    // assets/music_icon.png
+LV_IMG_DECLARE(fire);
+LV_IMG_DECLARE(rain);
+LV_IMG_DECLARE(sea);
 
 // FONTS
 LV_FONT_DECLARE(ui_font_FontKaiTi22);

@@ -24,7 +24,9 @@ static struct {
     int air_temp;
     bool ac_bl_longpress;
     air_brand_t air_brand;
-} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA };
+    int music_index;
+    bool music_playing;
+} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA, 0, true };
 static const int HUE_STEP = 10;
 static const int BRI_STEP = 5;
 static const int BRI_MIN = 0;
@@ -129,6 +131,36 @@ static void aircon_fullscreen_nolock(void) {
     lv_obj_set_align(ui_ImageScreenAirCon, LV_ALIGN_TOP_LEFT);
 }
 
+static void music_fullscreen_nolock(void) {
+    if (!ui_ImageScreenMusic) return;
+    lv_display_t* d = lv_display_get_default();
+    if (!d) return;
+    int w = lv_display_get_horizontal_resolution(d);
+    int h = lv_display_get_vertical_resolution(d);
+    ESP_LOGI(TAG, "set music bg to full screen %dx%d", w, h);
+    lv_obj_set_size(ui_ImageScreenMusic, w, h);
+    lv_obj_set_align(ui_ImageScreenMusic, LV_ALIGN_TOP_LEFT);
+}
+
+static lv_obj_t* ui_LabelNowMusic = NULL;
+
+static void music_apply_nolock(void) {
+    if (!ui_ScreenMusic) return;
+    const lv_image_dsc_t* imgs[3] = { &fire, &rain, &sea };
+    const char* names[3] = { "fire", "rain", "sea" };
+    int idx = (s_state.music_index % 3 + 3) % 3;
+    lv_image_set_src(ui_ImageScreenMusic, imgs[idx]);
+    if (!ui_LabelNowMusic) {
+        ui_LabelNowMusic = lv_label_create(ui_ScreenMusic);
+        lv_obj_set_align(ui_LabelNowMusic, LV_ALIGN_TOP_LEFT);
+        lv_obj_set_x(ui_LabelNowMusic, 6);
+        lv_obj_set_y(ui_LabelNowMusic, 6);
+    }
+    char buf[24];
+    snprintf(buf, sizeof(buf), "Now: %s", names[idx]);
+    lv_label_set_text(ui_LabelNowMusic, buf);
+}
+
 static void aircon_apply_nolock(void) {
     if (!ui_ScreenAirCon) return;
     int minv = AIR_TEMP_MIN, maxv = AIR_TEMP_MAX;
@@ -171,6 +203,8 @@ static void show_screen_nolock(const char* name) {
     } else if (strcmp(name, "music") == 0) {
         lv_disp_load_scr(ui_ScreenMusic);
         s_state.page = PAGE_MUSIC;
+        music_fullscreen_nolock();
+        music_apply_nolock();
     } else if (strcmp(name, "keyboard") == 0) {
         lv_disp_load_scr(ui_ScreenKeyBoard);
         s_state.page = PAGE_KEYBOARD;
@@ -284,6 +318,34 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 ESP_LOGI(TAG, "aircon onoff: %d", s_state.air_on);
                 aircon_apply_nolock();
                 break;
+            default: break;
+        }
+        } else if (s_state.page == PAGE_MUSIC) {
+        switch (source) {
+            case BSP_INPUT_TOUCH_TOP_LEFT: {
+                s_state.music_index = (s_state.music_index + 3 - 1) % 3;
+                const char* names[3] = { "fire", "rain", "sea" };
+                ESP_LOGI(TAG, "Music: previous -> %s", names[s_state.music_index]);
+                music_apply_nolock();
+                break;
+            }
+            case BSP_INPUT_TOUCH_TOP_RIGHT: {
+                s_state.music_index = (s_state.music_index + 1) % 3;
+                const char* names[3] = { "fire", "rain", "sea" };
+                ESP_LOGI(TAG, "Music: next -> %s", names[s_state.music_index]);
+                music_apply_nolock();
+                break;
+            }
+            case BSP_INPUT_TOUCH_BOTTOM_LEFT: {
+                s_state.music_playing = !s_state.music_playing;
+                const char* names[3] = { "fire", "rain", "sea" };
+                if (s_state.music_playing) {
+                    ESP_LOGI(TAG, "Music: resumed (%s)", names[s_state.music_index]);
+                } else {
+                    ESP_LOGI(TAG, "Music: paused (%s)", names[s_state.music_index]);
+                }
+                break;
+            }
             default: break;
         }
         }

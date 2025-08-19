@@ -8,6 +8,9 @@ SET(SOURCES screens/ui_ScreenLight.c
     images/ui_img_back_png.c
     images/ui_img_cloud_back_png.c
     images/ui_img_music_icon_png.c
+    fire.c
+    rain.c
+    sea.c
     fonts/ui_font_FontKaiTi22.c
     fonts/ui_font_FontKaiTi30.c
     fonts/ui_font_FontQingniao30.c)
