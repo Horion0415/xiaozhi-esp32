@@ -105,6 +105,7 @@ static bool microphone_device_opened = false;  /* Add microphone device state */
 static uint8_t current_volume = BSP_AUDIO_VOLUME_DEFAULT;
 static audio_player_cb_t audio_callback = NULL;
 static void *audio_callback_user_data = NULL;
+static bool s_wav_playing = false;
 
 // Vibration sensor functions
 static int vibration_level_change_count = 0;  
@@ -687,6 +688,82 @@ esp_codec_dev_handle_t bsp_audio_codec_speaker_init(void)
     };
     speaker_dev_handle = esp_codec_dev_new(&codec_dev_cfg);
     return speaker_dev_handle;
+}
+
+static size_t read_wav_data_chunk(FILE *fp, long *data_offset, uint32_t *data_size)
+{
+    fseek(fp, 12, SEEK_SET);
+    while (1) {
+        char id[4];
+        uint32_t size = 0;
+        if (fread(id, 1, 4, fp) != 4) return 0;
+        if (fread(&size, 1, 4, fp) != 4) return 0;
+        if (memcmp(id, "data", 4) == 0) {
+            *data_offset = ftell(fp);
+            *data_size = size;
+            return size;
+        }
+        fseek(fp, size, SEEK_CUR);
+    }
+}
+
+esp_err_t bsp_wav_play_file(const char *file_path)
+{
+    if (!file_path) return ESP_ERR_INVALID_ARG;
+    if (!speaker_dev_handle) {
+        speaker_dev_handle = bsp_audio_codec_speaker_init();
+        if (!speaker_dev_handle) return ESP_FAIL;
+    }
+    esp_codec_dev_sample_info_t fs = {
+        .sample_rate = BSP_OUTPUT_SAMPLE_RATE,
+        .channel = 1,
+        .bits_per_sample = 16,
+    };
+    {
+        esp_err_t orc = esp_codec_dev_open(speaker_dev_handle, &fs);
+        if (orc == ESP_OK) {
+            speaker_device_opened = true;
+            if (BSP_PA_CTL_GPIO != GPIO_NUM_NC) gpio_set_level(BSP_PA_CTL_GPIO, 1);
+        }
+    }
+    FILE *fp = fopen(file_path, "rb");
+    if (!fp) return ESP_FAIL;
+    uint8_t header[44];
+    if (fread(header, 1, sizeof(header), fp) != sizeof(header)) { fclose(fp); return ESP_FAIL; }
+    if (memcmp(header, "RIFF", 4) || memcmp(header + 8, "WAVE", 4)) { fclose(fp); return ESP_FAIL; }
+    long data_off = 0; uint32_t data_sz = 0;
+    if (!read_wav_data_chunk(fp, &data_off, &data_sz)) { fclose(fp); return ESP_FAIL; }
+    fseek(fp, data_off, SEEK_SET);
+    const size_t buf_sz = 2048;
+    uint8_t *buf = (uint8_t *)heap_caps_malloc(buf_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { fclose(fp); return ESP_ERR_NO_MEM; }
+    s_wav_playing = true;
+    bool reopen_tried = false;
+    while (data_sz > 0 && s_wav_playing) {
+        size_t to_read = data_sz > buf_sz ? buf_sz : data_sz;
+        size_t r = fread(buf, 1, to_read, fp);
+        if (r == 0) break;
+        esp_err_t ret = esp_codec_dev_write(speaker_dev_handle, buf, r);
+        if (ret != ESP_OK) {
+            if (!reopen_tried) {
+                esp_codec_dev_open(speaker_dev_handle, &fs);
+                reopen_tried = true;
+                continue;
+            }
+            break;
+        }
+        data_sz -= r;
+    }
+    s_wav_playing = false;
+    heap_caps_free(buf);
+    fclose(fp);
+    return ESP_OK;
+}
+
+esp_err_t bsp_wav_stop(void)
+{
+    s_wav_playing = false;
+    return ESP_OK;
 }
 
 esp_codec_dev_handle_t bsp_audio_codec_microphone_init(void)

@@ -570,6 +570,9 @@ esp_err_t bsp_audio_set_volume(uint8_t volume);
  */
 esp_err_t bsp_audio_get_volume(uint8_t *volume);
 
+esp_err_t bsp_wav_play_file(const char *file_path);
+esp_err_t bsp_wav_stop(void);
+
 /**
  * @brief Read audio data directly from the microphone
  * 
