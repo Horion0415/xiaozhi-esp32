@@ -3,6 +3,7 @@
 #include <string.h>
 #include <esp_log.h>
 #include "screens/ui_ScreenLight.h"
+#include "screens/ui_ScreenKeyBoard.h"
 #include "bsp/display.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
@@ -221,6 +222,43 @@ void ui_extra_show_screen(const char* name) {
 void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
     if (!g_inited) return;
     if (bsp_display_lock(0)) {
+        if (s_state.page == PAGE_KEYBOARD) {
+            if (event == BSP_BUTTON_EVENT_LONG_PRESS) {
+                if (source == BSP_INPUT_TOUCH_LEFT) {
+                    show_screen_nolock("music");
+                } else if (source == BSP_INPUT_TOUCH_RIGHT) {
+                    show_screen_nolock("light");
+                }
+                bsp_display_unlock();
+                return;
+            }
+            if (event == BSP_BUTTON_EVENT_PRESS_DOWN || event == BSP_BUTTON_EVENT_PRESS_UP) {
+                lv_obj_t* btn = NULL;
+                uint32_t color = 0;
+                switch (source) {
+                    case BSP_INPUT_TOUCH_TOP_LEFT: btn = ui_ButtonScreenKeyBoardDo; color = 0xFF3B30; break;
+                    case BSP_INPUT_TOUCH_LEFT: btn = ui_ButtonScreenKeyBoardRe; color = 0xFF9500; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_LEFT: btn = ui_ButtonScreenKeyBoardMi; color = 0xFFCC00; break;
+                    case BSP_INPUT_TOUCH_TOP_RIGHT: btn = ui_ButtonScreenKeyBoardFa; color = 0x34C759; break;
+                    case BSP_INPUT_TOUCH_RIGHT: btn = ui_ButtonScreenKeyBoardSo; color = 0x5AC8FA; break;
+                    case BSP_INPUT_TOUCH_BOTTOM_RIGHT: btn = ui_ButtonScreenKeyBoardLa; color = 0x007AFF; break;
+                    default: break;
+                }
+                if (btn) {
+                    if (event == BSP_BUTTON_EVENT_PRESS_DOWN) {
+                        lv_obj_add_state(btn, LV_STATE_FOCUSED);
+                        bsp_led_set_for_touch(source, color);
+                    } else {
+                        lv_obj_clear_state(btn, LV_STATE_FOCUSED);
+                        bsp_led_clear_for_touch(source);
+                    }
+                }
+                bsp_display_unlock();
+                return;
+            }
+            bsp_display_unlock();
+            return;
+        }
         if (event == BSP_BUTTON_EVENT_LONG_PRESS) {
             if (s_state.page == PAGE_LIGHT && source == BSP_INPUT_TOUCH_BOTTOM_LEFT) {
                 s_state.bl_longpress = true;
