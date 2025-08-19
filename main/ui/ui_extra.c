@@ -142,23 +142,11 @@ static void music_fullscreen_nolock(void) {
     lv_obj_set_align(ui_ImageScreenMusic, LV_ALIGN_TOP_LEFT);
 }
 
-static lv_obj_t* ui_LabelNowMusic = NULL;
-
 static void music_apply_nolock(void) {
     if (!ui_ScreenMusic) return;
     const lv_image_dsc_t* imgs[3] = { &fire, &rain, &sea };
-    const char* names[3] = { "fire", "rain", "sea" };
     int idx = (s_state.music_index % 3 + 3) % 3;
     lv_image_set_src(ui_ImageScreenMusic, imgs[idx]);
-    if (!ui_LabelNowMusic) {
-        ui_LabelNowMusic = lv_label_create(ui_ScreenMusic);
-        lv_obj_set_align(ui_LabelNowMusic, LV_ALIGN_TOP_LEFT);
-        lv_obj_set_x(ui_LabelNowMusic, 6);
-        lv_obj_set_y(ui_LabelNowMusic, 6);
-    }
-    char buf[24];
-    snprintf(buf, sizeof(buf), "Now: %s", names[idx]);
-    lv_label_set_text(ui_LabelNowMusic, buf);
 }
 
 static void aircon_apply_nolock(void) {
@@ -322,30 +310,24 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
         }
         } else if (s_state.page == PAGE_MUSIC) {
         switch (source) {
-            case BSP_INPUT_TOUCH_TOP_LEFT: {
+            case BSP_INPUT_TOUCH_TOP_LEFT:
                 s_state.music_index = (s_state.music_index + 3 - 1) % 3;
-                const char* names[3] = { "fire", "rain", "sea" };
-                ESP_LOGI(TAG, "Music: previous -> %s", names[s_state.music_index]);
+                ESP_LOGI(TAG, "Music: previous");
                 music_apply_nolock();
                 break;
-            }
-            case BSP_INPUT_TOUCH_TOP_RIGHT: {
+            case BSP_INPUT_TOUCH_TOP_RIGHT:
                 s_state.music_index = (s_state.music_index + 1) % 3;
-                const char* names[3] = { "fire", "rain", "sea" };
-                ESP_LOGI(TAG, "Music: next -> %s", names[s_state.music_index]);
+                ESP_LOGI(TAG, "Music: next");
                 music_apply_nolock();
                 break;
-            }
-            case BSP_INPUT_TOUCH_BOTTOM_LEFT: {
+            case BSP_INPUT_TOUCH_BOTTOM_LEFT:
                 s_state.music_playing = !s_state.music_playing;
-                const char* names[3] = { "fire", "rain", "sea" };
                 if (s_state.music_playing) {
-                    ESP_LOGI(TAG, "Music: resumed (%s)", names[s_state.music_index]);
+                    ESP_LOGI(TAG, "Music: resumed");
                 } else {
-                    ESP_LOGI(TAG, "Music: paused (%s)", names[s_state.music_index]);
+                    ESP_LOGI(TAG, "Music: paused");
                 }
                 break;
-            }
             default: break;
         }
         }
