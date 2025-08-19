@@ -111,9 +111,9 @@ static esp_err_t touch_interrupt_init(gpio_num_t pin)
     gpio_config_t io_conf = {
         .pin_bit_mask = (1ULL << pin),
         .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_ANYEDGE,
+        .intr_type = GPIO_INTR_NEGEDGE,
     };
 
     esp_err_t ret = gpio_config(&io_conf);
@@ -154,16 +154,18 @@ static void touch_status_update_task(void *pvParameter)
         esp_err_t ret;
         
         if (s_touch_semaphore && s_interrupt_pin != GPIO_NUM_NC) {
-            if (xSemaphoreTake(s_touch_semaphore, pdMS_TO_TICKS(30)) == pdTRUE) {
+            if (xSemaphoreTake(s_touch_semaphore, pdMS_TO_TICKS(50)) == pdTRUE) {
                 ret = bs8112a3_read_register(BS8112A3_KEY1_TO_KEY8_STATUS_ADDR, &status, 1);
                 if (ret == ESP_OK) {
                     s_touch_button_status = status;
                 }
+                vTaskDelay(pdMS_TO_TICKS(2));
             } else {
                 ret = bs8112a3_read_register(BS8112A3_KEY1_TO_KEY8_STATUS_ADDR, &status, 1);
                 if (ret == ESP_OK) {
                     s_touch_button_status = status;
                 }
+                vTaskDelay(pdMS_TO_TICKS(2));
             }
         } else {
             ret = bs8112a3_read_register(BS8112A3_KEY1_TO_KEY8_STATUS_ADDR, &status, 1);

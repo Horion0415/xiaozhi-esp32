@@ -237,6 +237,7 @@ file(GLOB UI_SOURCES
 )
 list(APPEND SOURCES ${UI_SOURCES})
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ui)
+list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/app)
 
 # Extra sources required by specific boards
 if(BOARD_TYPE STREQUAL "esp32c5-sensairpanel")
@@ -250,6 +251,8 @@ endif()
 list(APPEND SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/app/display_mode_controller.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/app/app_input_controller.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/ir_ac_controller.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/ir_ac_bridge.cc
 )
 
 if(CONFIG_USE_AUDIO_PROCESSOR)
