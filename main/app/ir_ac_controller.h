@@ -13,8 +13,11 @@ public:
     void Init();
     void SetBrand(ir_brand_t brand);
     void Apply(bool power_on, bool cool_mode, uint8_t temperature);
+    void ApplyAsync(bool power_on, bool cool_mode, uint8_t temperature);  // 异步版本，不等待完成
     void SetPower(bool on);
+    void SetPowerAsync(bool on);
     void SetModeAndTemp(bool cool_mode, uint8_t temperature);
+    void SetModeAndTempAsync(bool cool_mode, uint8_t temperature);
     void SetModelName(const char* name);
 private:
     IrAcController() = default;

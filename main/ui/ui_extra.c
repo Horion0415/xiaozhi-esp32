@@ -212,7 +212,7 @@ static void show_screen_nolock(const char* name) {
         ir_ac_init();
         ir_brand_t b = (s_state.air_brand==BRAND_MIDEA?IR_BRAND_MIDEA:(s_state.air_brand==BRAND_GREE?IR_BRAND_GREE:IR_BRAND_HAIER));
         ir_ac_set_brand(b);
-        ir_ac_apply(s_state.air_on, s_state.air_mode==AIR_COOL, s_state.air_temp);
+        ir_ac_apply_async(s_state.air_on, s_state.air_mode==AIR_COOL, s_state.air_temp); 
     } else if (strcmp(name, "music") == 0) {
         lv_disp_load_scr(ui_ScreenMusic);
         s_state.page = PAGE_MUSIC;
@@ -369,14 +369,14 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 if (s_state.air_temp > AIR_TEMP_MIN) s_state.air_temp -= AIR_TEMP_STEP;
                 ESP_LOGI(TAG, "aircon TL: temp=%d", s_state.air_temp);
                 aircon_apply_nolock();
-                ir_ac_set_mode_and_temp(s_state.air_mode==AIR_COOL, s_state.air_temp);
+                ir_ac_set_mode_and_temp_async(s_state.air_mode==AIR_COOL, s_state.air_temp);
                 break;
             case BSP_INPUT_TOUCH_TOP_RIGHT:
                 if (!s_state.air_on) { ESP_LOGI(TAG, "aircon is off, ignore value changes"); break; }
                 if (s_state.air_temp < AIR_TEMP_MAX) s_state.air_temp += AIR_TEMP_STEP;
                 ESP_LOGI(TAG, "aircon TR: temp=%d", s_state.air_temp);
                 aircon_apply_nolock();
-                ir_ac_set_mode_and_temp(s_state.air_mode==AIR_COOL, s_state.air_temp);
+                ir_ac_set_mode_and_temp_async(s_state.air_mode==AIR_COOL, s_state.air_temp);
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_LEFT:
                 if (s_state.ac_bl_longpress) { s_state.ac_bl_longpress = false; ESP_LOGI(TAG, "skip aircon mode toggle after long press"); break; }
@@ -384,13 +384,13 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 s_state.air_mode = (s_state.air_mode==AIR_COOL)? AIR_HEAT: AIR_COOL;
                 ESP_LOGI(TAG, "aircon toggle mode: %d", s_state.air_mode);
                 aircon_apply_nolock();
-                ir_ac_set_mode_and_temp(s_state.air_mode==AIR_COOL, s_state.air_temp);
+                ir_ac_set_mode_and_temp_async(s_state.air_mode==AIR_COOL, s_state.air_temp);
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_RIGHT:
                 s_state.air_on = !s_state.air_on;
                 ESP_LOGI(TAG, "aircon onoff: %d", s_state.air_on);
                 aircon_apply_nolock();
-                ir_ac_set_power(s_state.air_on);
+                ir_ac_set_power_async(s_state.air_on);
                 break;
             default: break;
         }

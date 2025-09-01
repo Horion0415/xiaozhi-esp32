@@ -57,12 +57,50 @@ void IrAcController::Apply(bool power_on, bool cool_mode, uint8_t temperature) {
     temperature_ = temperature;
 }
 
+void IrAcController::ApplyAsync(bool power_on, bool cool_mode, uint8_t temperature) {
+    Init();
+    if (!inited_) return;
+    if (temperature < 16) temperature = 16;
+    if (temperature > 30) temperature = 30;
+    ir_device_info_t info = {};
+    info.category = IR_DEVICE_AC;
+    strncpy(info.brand, brand_name_, IR_MAX_BRAND_NAME_LEN - 1);
+    info.model_id = model_id_;
+    strncpy(info.model, model_name_[0] ? model_name_ : "-", IR_MAX_MODEL_NAME_LEN - 1);
+    ir_ac_status_t st = {};
+    st.power = power_on ? IR_AC_POWER_ON : IR_AC_POWER_OFF;
+    st.mode = cool_mode ? IR_AC_MODE_COOL : IR_AC_MODE_HEAT;
+    st.temperature = temperature;
+    st.wind_speed = IR_AC_WIND_AUTO;
+    st.swing = IR_AC_SWING_OFF;
+    EnsureWorker();
+    AcMessage msg{};
+    msg.info = info;
+    msg.ac = st;
+    msg.result = nullptr;  
+    msg.waiter = nullptr;  
+    if (queue_) {
+        xQueueSend(queue_, &msg, 0); 
+    }
+    power_on_ = power_on;
+    cool_mode_ = cool_mode;
+    temperature_ = temperature;
+}
+
 void IrAcController::SetPower(bool on) {
     Apply(on, cool_mode_, temperature_);
 }
 
+void IrAcController::SetPowerAsync(bool on) {
+    ApplyAsync(on, cool_mode_, temperature_);
+}
+
 void IrAcController::SetModeAndTemp(bool cool_mode, uint8_t temperature) {
     Apply(true, cool_mode, temperature);
+}
+
+void IrAcController::SetModeAndTempAsync(bool cool_mode, uint8_t temperature) {
+    ApplyAsync(true, cool_mode, temperature);
 }
 
 void IrAcController::SetModelName(const char* name) {
