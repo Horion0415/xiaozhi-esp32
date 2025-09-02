@@ -15,6 +15,8 @@
 #include "rhythm_visualizer.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
+static void (*g_light_state_change_callback)(void) = NULL;
+static ui_light_button_callback_t g_light_button_callback = NULL;
 typedef enum { PAGE_LIGHT=0, PAGE_AIRCON, PAGE_MUSIC, PAGE_KEYBOARD } ui_page_t;
 typedef enum { MODE_HUE=0, MODE_BRIGHTNESS } light_mode_t;
 typedef enum { INTEG_MATTER=0, INTEG_HA, INTEG_RAINMAKER } integ_mode_t;
@@ -39,6 +41,38 @@ static struct {
 } s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA, 0, true, false };
 static esp_timer_handle_t s_kb_audio_timer = NULL;
 static void kb_audio_timer_cb(void* arg) { (void)arg; bsp_wav_stop(); }
+
+static ui_button_position_t bsp_source_to_ui_position(bsp_button_source_t source) {
+    switch(source) {
+        case BSP_INPUT_TOUCH_TOP_LEFT: return UI_BUTTON_POS_TOP_LEFT;
+        case BSP_INPUT_TOUCH_TOP_RIGHT: return UI_BUTTON_POS_TOP_RIGHT;
+        case BSP_INPUT_TOUCH_BOTTOM_LEFT: return UI_BUTTON_POS_BOTTOM_LEFT;
+        case BSP_INPUT_TOUCH_BOTTOM_RIGHT: return UI_BUTTON_POS_BOTTOM_RIGHT;
+        default: return UI_BUTTON_POS_TOP_LEFT;
+    }
+}
+
+static ui_button_event_t bsp_event_to_ui_event(bsp_button_event_t event) {
+    switch(event) {
+        case BSP_BUTTON_EVENT_PRESS_DOWN: return UI_BUTTON_EVENT_PRESS_DOWN;
+        case BSP_BUTTON_EVENT_PRESS_UP: return UI_BUTTON_EVENT_PRESS_UP;
+        case BSP_BUTTON_EVENT_LONG_PRESS: return UI_BUTTON_EVENT_LONG_PRESS;
+        default: return UI_BUTTON_EVENT_SHORT_PRESS;
+    }
+}
+
+static bool should_call_light_button_callback(bsp_button_source_t source, bsp_button_event_t event) {
+    if (!g_light_button_callback || s_state.page != PAGE_LIGHT) return false;
+    
+    ui_button_position_t pos = bsp_source_to_ui_position(source);
+    ui_button_event_t ui_event = bsp_event_to_ui_event(event);
+    
+    if (event == BSP_BUTTON_EVENT_PRESS_UP) {
+        ui_event = UI_BUTTON_EVENT_SHORT_PRESS;
+    }
+    
+    return g_light_button_callback(pos, ui_event);
+}
 static const int HUE_STEP = 10;
 static const int BRI_STEP = 5;
 static const int BRI_MIN = 0;
@@ -119,6 +153,7 @@ static void light_apply_nolock(void) {
         case INTEG_RAINMAKER: lv_label_set_text(ui_LabelColorTemModeScreenLight, "Rainmaker"); break;
     }
     lv_obj_set_style_text_color(ui_LabelColorTemModeScreenLight, on?txt_on:gray, LV_PART_MAIN|LV_STATE_DEFAULT);
+    if (g_light_state_change_callback) g_light_state_change_callback();
 }
 
 static void light_fullscreen_nolock(void) {
@@ -383,6 +418,10 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
         }
         if (event == BSP_BUTTON_EVENT_LONG_PRESS) {
             if (s_state.page == PAGE_LIGHT && source == BSP_INPUT_TOUCH_BOTTOM_LEFT) {
+                if (should_call_light_button_callback(source, event)) {
+                    bsp_display_unlock();
+                    return;
+                }
                 s_state.bl_longpress = true;
                 if (s_state.integration == INTEG_MATTER) s_state.integration = INTEG_HA; else if (s_state.integration == INTEG_HA) s_state.integration = INTEG_RAINMAKER; else s_state.integration = INTEG_MATTER;
                 ESP_LOGI(TAG, "integration mode: %d", s_state.integration);
@@ -394,6 +433,11 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 aircon_apply_nolock();
                 ir_brand_t b = (s_state.air_brand==BRAND_MIDEA?IR_BRAND_MIDEA:(s_state.air_brand==BRAND_GREE?IR_BRAND_GREE:IR_BRAND_HAIER));
                 ir_ac_set_brand(b);
+            } else if (s_state.page == PAGE_LIGHT) {
+                if (should_call_light_button_callback(source, event)) {
+                    bsp_display_unlock();
+                    return;
+                }
             }
             bsp_display_unlock();
             return;
@@ -417,18 +461,21 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
         if (s_state.page == PAGE_LIGHT) {
         switch (source) {
             case BSP_INPUT_TOUCH_TOP_LEFT:
+                if (should_call_light_button_callback(source, BSP_BUTTON_EVENT_PRESS_UP)) break;
                 if (!s_state.light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 if (s_state.mode==MODE_HUE) s_state.hue = (s_state.hue+360-HUE_STEP)%360; else s_state.brightness = s_state.brightness>BRI_MIN? s_state.brightness-BRI_STEP:BRI_MIN;
                 ESP_LOGI(TAG, "light TL: hue=%d bri=%d", s_state.hue, s_state.brightness);
                 light_apply_nolock();
                 break;
             case BSP_INPUT_TOUCH_TOP_RIGHT:
+                if (should_call_light_button_callback(source, BSP_BUTTON_EVENT_PRESS_UP)) break;
                 if (!s_state.light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 if (s_state.mode==MODE_HUE) s_state.hue = (s_state.hue+HUE_STEP)%360; else s_state.brightness = s_state.brightness<BRI_MAX? s_state.brightness+BRI_STEP:BRI_MAX;
                 ESP_LOGI(TAG, "light TR: hue=%d bri=%d", s_state.hue, s_state.brightness);
                 light_apply_nolock();
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_LEFT:
+                if (should_call_light_button_callback(source, BSP_BUTTON_EVENT_PRESS_UP)) break;
                 if (s_state.bl_longpress) { s_state.bl_longpress = false; ESP_LOGI(TAG, "skip mode toggle after long press"); break; }
                 if (!s_state.light_on) { ESP_LOGI(TAG, "light is off, ignore value/mode changes"); break; }
                 s_state.mode = (s_state.mode==MODE_HUE)? MODE_BRIGHTNESS: MODE_HUE;
@@ -436,6 +483,7 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 light_apply_nolock();
                 break;
             case BSP_INPUT_TOUCH_BOTTOM_RIGHT:
+                if (should_call_light_button_callback(source, BSP_BUTTON_EVENT_PRESS_UP)) break;
                 s_state.light_on = !s_state.light_on;
                 ESP_LOGI(TAG, "light onoff: %d", s_state.light_on);
                 light_apply_nolock();
@@ -524,5 +572,90 @@ void ui_extra_on_enter_lvgl(void) {
         bsp_display_unlock();
     }
 }
+
+
+bool ui_extra_get_light_power(void) {
+    return s_state.light_on;
+}
+
+int ui_extra_get_light_hue(void) {
+    return s_state.hue;
+}
+
+int ui_extra_get_light_brightness(void) {
+    return s_state.brightness;
+}
+
+int ui_extra_get_light_mode(void) {
+    return (int)s_state.mode;
+}
+
+int ui_extra_get_integration_mode(void) {
+    return (int)s_state.integration;
+}
+
+void ui_extra_set_power_direct(bool on) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        s_state.light_on = on;
+        if (s_state.page == PAGE_LIGHT) {
+            light_apply_nolock();
+        }
+        bsp_display_unlock();
+    }
+}
+
+void ui_extra_set_hue_direct(int hue) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        s_state.hue = hue % 360;
+        if (s_state.page == PAGE_LIGHT) {
+            light_apply_nolock();
+        }
+        bsp_display_unlock();
+    }
+}
+
+void ui_extra_set_brightness_direct(int brightness) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        s_state.brightness = (brightness < BRI_MIN) ? BRI_MIN : 
+                           (brightness > BRI_MAX) ? BRI_MAX : brightness;
+        if (s_state.page == PAGE_LIGHT) {
+            light_apply_nolock();
+        }
+        bsp_display_unlock();
+    }
+}
+
+void ui_extra_set_light_mode_direct(int mode) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        s_state.mode = (light_mode_t)mode;
+        if (s_state.page == PAGE_LIGHT) {
+            light_apply_nolock();
+        }
+        bsp_display_unlock();
+    }
+}
+
+void ui_extra_set_integration_mode_direct(int integration) {
+    if (!g_inited) return;
+    if (bsp_display_lock(0)) {
+        s_state.integration = (integ_mode_t)integration;
+        if (s_state.page == PAGE_LIGHT) {
+            light_apply_nolock();
+        }
+        bsp_display_unlock();
+          }
+  }
+  
+  void ui_extra_register_light_callback(void (*callback)(void)) {
+      g_light_state_change_callback = callback;
+  }
+  
+  void ui_extra_register_light_button_callback(ui_light_button_callback_t callback) {
+      g_light_button_callback = callback;
+  }
 
 
