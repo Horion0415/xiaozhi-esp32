@@ -12,6 +12,7 @@
 #include "freertos/queue.h"
 #include <string.h>
 #include "app/ir_ac_bridge.h"
+#include "rhythm_visualizer.h"
 static const char* TAG = "ui_extra";
 static bool g_inited = false;
 typedef enum { PAGE_LIGHT=0, PAGE_AIRCON, PAGE_MUSIC, PAGE_KEYBOARD } ui_page_t;
@@ -34,7 +35,8 @@ static struct {
     air_brand_t air_brand;
     int music_index;
     bool music_playing;
-} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA, 0, true };
+    bool music_rhythm_initialized;
+} s_state = { PAGE_LIGHT, true, 60, 60, MODE_HUE, INTEG_MATTER, false, true, AIR_COOL, 26, false, BRAND_MIDEA, 0, true, false };
 static esp_timer_handle_t s_kb_audio_timer = NULL;
 static void kb_audio_timer_cb(void* arg) { (void)arg; bsp_wav_stop(); }
 static const int HUE_STEP = 10;
@@ -154,9 +156,37 @@ static void music_fullscreen_nolock(void) {
 
 static void music_apply_nolock(void) {
     if (!ui_ScreenMusic) return;
+    
+    if (!s_state.music_rhythm_initialized) {
+        rhythm_visualizer_init();
+        rhythm_effect_config_t config = {
+            .sensitivity = 6,
+            .speed = 5,
+            .brightness = 200,
+            .smooth_mode = true
+        };
+        rhythm_set_effect_config(&config);
+        s_state.music_rhythm_initialized = true;
+    }
+    
     const lv_image_dsc_t* imgs[3] = { &fire, &rain, &sea };
+    const char* audio_files[3] = {"/spiffs/fire.wav", "/spiffs/rain.wav", "/spiffs/sea.wav"};
+    rhythm_scene_t scenes[3] = {RHYTHM_SCENE_FIRE, RHYTHM_SCENE_RAIN, RHYTHM_SCENE_WAVE};
+    
     int idx = (s_state.music_index % 3 + 3) % 3;
     lv_image_set_src(ui_ImageScreenMusic, imgs[idx]);
+    
+    if (s_state.music_playing) {
+        if (rhythm_is_running()) {
+            rhythm_stop();
+        }
+        rhythm_start_natural_sound(scenes[idx], audio_files[idx]);
+        ESP_LOGI(TAG, "Playing %s with rhythm scene %d", audio_files[idx], scenes[idx]);
+    } else {
+        if (rhythm_is_running()) {
+            rhythm_stop();
+        }
+    }
 }
 
 static void aircon_apply_nolock(void) {
@@ -188,6 +218,16 @@ static void aircon_apply_nolock(void) {
 static void show_screen_nolock(const char* name) {
     if (!name) return;
     ESP_LOGI(TAG, "ui_extra_show_screen: %s", name);
+    
+    if (s_state.page == PAGE_MUSIC && strcmp(name, "music") != 0) {
+        if (rhythm_is_running()) {
+            rhythm_stop();
+        }
+        if (s_state.music_rhythm_initialized) {
+            rhythm_visualizer_deinit();
+            s_state.music_rhythm_initialized = false;
+        }
+    }
     if (strcmp(name, "light") == 0) {
         lv_disp_load_scr(ui_ScreenLight);
         s_state.page = PAGE_LIGHT;
@@ -398,6 +438,7 @@ void ui_extra_on_button(bsp_button_source_t source, bsp_button_event_t event) {
                 } else {
                     ESP_LOGI(TAG, "Music: paused");
                 }
+                music_apply_nolock();
                 break;
             default: break;
         }
