@@ -32,6 +32,11 @@ static AppInputController* g_input_ctrl = nullptr;
 
 static void on_touch_down()
 {
+    auto& wifi_station = WifiStation::GetInstance();
+    if (!wifi_station.IsConnected()) {
+        return;
+    }
+    
     if (g_display_mode) g_display_mode->EnterLvglMode();
     auto disp = Board::GetInstance().GetDisplay();
     if (disp) {
