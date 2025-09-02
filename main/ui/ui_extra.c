@@ -154,18 +154,73 @@ static void music_fullscreen_nolock(void) {
     lv_obj_set_align(ui_ImageScreenMusic, LV_ALIGN_TOP_LEFT);
 }
 
+static esp_err_t rhythm_led_matrix_init_adapter(void* user_data) {
+    return bsp_led_matrix_init();
+}
+
+static esp_err_t rhythm_led_matrix_set_pixel_adapter(uint16_t x, uint16_t y, uint32_t color, void* user_data) {
+    return bsp_led_matrix_set_pixel(x, y, color);
+}
+
+static esp_err_t rhythm_led_matrix_clear_adapter(void* user_data) {
+    return bsp_led_matrix_clear();
+}
+
+static esp_err_t rhythm_led_matrix_refresh_adapter(void* user_data) {
+    return bsp_led_matrix_refresh();
+}
+
+static esp_err_t rhythm_led_matrix_deinit_adapter(void* user_data) {
+    return ESP_OK;
+}
+
+static esp_err_t rhythm_audio_player_init_adapter(void* user_data) {
+    return bsp_wav_init_async();
+}
+
+static esp_err_t rhythm_audio_play_file_adapter(const char* file_path, void* user_data) {
+    return bsp_wav_play_file_async(file_path);
+}
+
+static esp_err_t rhythm_audio_stop_adapter(void* user_data) {
+    return bsp_wav_stop();
+}
+
+static esp_err_t rhythm_audio_player_deinit_adapter(void* user_data) {
+    return ESP_OK;
+}
+
 static void music_apply_nolock(void) {
     if (!ui_ScreenMusic) return;
     
     if (!s_state.music_rhythm_initialized) {
-        rhythm_visualizer_init();
-        rhythm_effect_config_t config = {
+        rhythm_config_t config = {
+            .matrix_rows = 16,
+            .matrix_cols = 16,
+            .hw_interface = {
+                .led_matrix_init = rhythm_led_matrix_init_adapter,
+                .led_matrix_set_pixel = rhythm_led_matrix_set_pixel_adapter,
+                .led_matrix_clear = rhythm_led_matrix_clear_adapter,
+                .led_matrix_refresh = rhythm_led_matrix_refresh_adapter,
+                .led_matrix_deinit = rhythm_led_matrix_deinit_adapter,
+                .audio_player_init = rhythm_audio_player_init_adapter,
+                .audio_play_file = rhythm_audio_play_file_adapter,
+                .audio_stop = rhythm_audio_stop_adapter,
+                .audio_player_deinit = rhythm_audio_player_deinit_adapter,
+                .audio_read = NULL
+            },
+            .user_data = NULL
+        };
+        
+        rhythm_visualizer_init(&config);
+        
+        rhythm_effect_config_t effect_config = {
             .sensitivity = 6,
             .speed = 5,
             .brightness = 200,
             .smooth_mode = true
         };
-        rhythm_set_effect_config(&config);
+        rhythm_set_effect_config(&effect_config);
         s_state.music_rhythm_initialized = true;
     }
     

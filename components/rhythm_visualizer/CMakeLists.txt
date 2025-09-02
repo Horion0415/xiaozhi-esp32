@@ -11,11 +11,10 @@ set(RHYTHM_INCLUDES
 )
 
 set(RHYTHM_REQUIRES
-    "esp32_c5_sensairpanel"
     "esp_timer"
     "freertos"
     "esp_common"
-    "driver"
+    "log"
 )
 
 idf_component_register(

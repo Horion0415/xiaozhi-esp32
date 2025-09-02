@@ -9,10 +9,6 @@
 extern "C" {
 #endif
 
-#define RHYTHM_MATRIX_ROWS 16
-#define RHYTHM_MATRIX_COLS 16
-#define RHYTHM_MATRIX_PIXELS (RHYTHM_MATRIX_ROWS * RHYTHM_MATRIX_COLS)
-
 typedef enum {
     RHYTHM_SCENE_FIRE = 0,
     RHYTHM_SCENE_RAIN,
@@ -35,7 +31,29 @@ typedef struct {
     float total_energy;
 } rhythm_spectrum_t;
 
-esp_err_t rhythm_visualizer_init(void);
+typedef struct {
+    esp_err_t (*led_matrix_init)(void* user_data);
+    esp_err_t (*led_matrix_set_pixel)(uint16_t x, uint16_t y, uint32_t color, void* user_data);
+    esp_err_t (*led_matrix_clear)(void* user_data);
+    esp_err_t (*led_matrix_refresh)(void* user_data);
+    esp_err_t (*led_matrix_deinit)(void* user_data);
+    
+    esp_err_t (*audio_player_init)(void* user_data);
+    esp_err_t (*audio_play_file)(const char* file_path, void* user_data);
+    esp_err_t (*audio_stop)(void* user_data);
+    esp_err_t (*audio_player_deinit)(void* user_data);
+    
+    esp_err_t (*audio_read)(void* buffer, size_t len, size_t* bytes_read, uint32_t timeout_ms, void* user_data);
+} rhythm_hardware_interface_t;
+
+typedef struct {
+    uint16_t matrix_rows;
+    uint16_t matrix_cols;
+    rhythm_hardware_interface_t hw_interface;
+    void* user_data;
+} rhythm_config_t;
+
+esp_err_t rhythm_visualizer_init(const rhythm_config_t* config);
 esp_err_t rhythm_visualizer_deinit(void);
 
 esp_err_t rhythm_start_natural_sound(rhythm_scene_t scene, const char* audio_file);

@@ -4,6 +4,9 @@
 
 static bool s_initialized = false;
 static uint32_t s_frame_counter = 0;
+static uint16_t s_matrix_rows = 16;
+static uint16_t s_matrix_cols = 16;
+static uint32_t s_matrix_pixels = 256;
 
 static uint32_t hsv_to_rgb(float h, float s, float v) {
     float c = v * s;
@@ -55,10 +58,10 @@ static void map_fire_scene(const rhythm_spectrum_t* spectrum, const rhythm_effec
     uint32_t base_colors[] = {0xFF4500, 0xFF6600, 0xFF8800, 0xFFAA00};
     uint32_t flame_color = interpolate_color(0x330000, base_colors[s_frame_counter % 4], intensity * flicker);
     
-    for (int y = 0; y < RHYTHM_MATRIX_ROWS; y++) {
-        for (int x = 0; x < RHYTHM_MATRIX_COLS; x++) {
-            int idx = y * RHYTHM_MATRIX_COLS + x;
-            float distance = sqrtf(powf(x - 8, 2) + powf(y - 12, 2)) / 8.0f;
+    for (int y = 0; y < s_matrix_rows; y++) {
+        for (int x = 0; x < s_matrix_cols; x++) {
+            int idx = y * s_matrix_cols + x;
+            float distance = sqrtf(powf(x - s_matrix_cols/2, 2) + powf(y - s_matrix_rows*3/4, 2)) / (s_matrix_cols/2);
             float fade = fmaxf(0.0f, 1.0f - distance);
             
             uint8_t r = ((flame_color >> 16) & 0xFF) * fade * (config->brightness / 255.0f);
@@ -73,17 +76,17 @@ static void map_fire_scene(const rhythm_spectrum_t* spectrum, const rhythm_effec
 static void map_rain_scene(const rhythm_spectrum_t* spectrum, const rhythm_effect_config_t* config, uint32_t* colors) {
     float intensity = fminf(spectrum->mid_energy * config->sensitivity * 0.1f, 1.0f);
     
-    memset(colors, 0, RHYTHM_MATRIX_PIXELS * sizeof(uint32_t));
+    memset(colors, 0, s_matrix_pixels * sizeof(uint32_t));
     
     int drop_count = (int)(intensity * 8 + 2);
     for (int i = 0; i < drop_count; i++) {
-        int x = (s_frame_counter * 7 + i * 13) % RHYTHM_MATRIX_COLS;
-        int y_start = (s_frame_counter * config->speed / 5) % (RHYTHM_MATRIX_ROWS + 8);
+        int x = (s_frame_counter * 7 + i * 13) % s_matrix_cols;
+        int y_start = (s_frame_counter * config->speed / 5) % (s_matrix_rows + 8);
         
         for (int j = 0; j < 3; j++) {
             int y = y_start - j;
-            if (y >= 0 && y < RHYTHM_MATRIX_ROWS) {
-                int idx = y * RHYTHM_MATRIX_COLS + x;
+            if (y >= 0 && y < s_matrix_rows) {
+                int idx = y * s_matrix_cols + x;
                 float alpha = (3 - j) / 3.0f;
                 uint8_t blue = (uint8_t)(255 * alpha * intensity * (config->brightness / 255.0f));
                 colors[idx] = blue;
@@ -95,12 +98,12 @@ static void map_rain_scene(const rhythm_spectrum_t* spectrum, const rhythm_effec
 static void map_wave_scene(const rhythm_spectrum_t* spectrum, const rhythm_effect_config_t* config, uint32_t* colors) {
     float intensity = fminf(spectrum->total_energy * config->sensitivity * 0.1f, 1.0f);
     
-    for (int y = 0; y < RHYTHM_MATRIX_ROWS; y++) {
-        for (int x = 0; x < RHYTHM_MATRIX_COLS; x++) {
-            int idx = y * RHYTHM_MATRIX_COLS + x;
+    for (int y = 0; y < s_matrix_rows; y++) {
+        for (int x = 0; x < s_matrix_cols; x++) {
+            int idx = y * s_matrix_cols + x;
             
-            float wave = sinf((x * 0.5f + s_frame_counter * config->speed * 0.05f) * M_PI / 8.0f);
-            float wave_y = 8.0f + wave * 4.0f * intensity;
+            float wave = sinf((x * 0.5f + s_frame_counter * config->speed * 0.05f) * M_PI / (s_matrix_cols/2));
+            float wave_y = s_matrix_rows/2 + wave * (s_matrix_rows/4) * intensity;
             
             float distance = fabsf(y - wave_y);
             float alpha = fmaxf(0.0f, 1.0f - distance / 3.0f);
@@ -116,8 +119,8 @@ static void map_wave_scene(const rhythm_spectrum_t* spectrum, const rhythm_effec
 }
 
 static void map_spectrum_scene(const rhythm_spectrum_t* spectrum, const rhythm_effect_config_t* config, uint32_t* colors) {
-    for (int x = 0; x < RHYTHM_MATRIX_COLS; x++) {
-        float freq_ratio = (float)x / RHYTHM_MATRIX_COLS;
+    for (int x = 0; x < s_matrix_cols; x++) {
+        float freq_ratio = (float)x / s_matrix_cols;
         float energy;
         
         if (freq_ratio < 0.33f) {
@@ -128,13 +131,13 @@ static void map_spectrum_scene(const rhythm_spectrum_t* spectrum, const rhythm_e
             energy = spectrum->high_energy;
         }
         
-        int height = (int)(fminf(energy * config->sensitivity * 0.5f, 1.0f) * RHYTHM_MATRIX_ROWS);
+        int height = (int)(fminf(energy * config->sensitivity * 0.5f, 1.0f) * s_matrix_rows);
         float hue = freq_ratio * 300.0f;
         uint32_t color = hsv_to_rgb(hue, 1.0f, config->brightness / 255.0f);
         
-        for (int y = 0; y < RHYTHM_MATRIX_ROWS; y++) {
-            int idx = y * RHYTHM_MATRIX_COLS + x;
-            if (y >= RHYTHM_MATRIX_ROWS - height) {
+        for (int y = 0; y < s_matrix_rows; y++) {
+            int idx = y * s_matrix_cols + x;
+            if (y >= s_matrix_rows - height) {
                 colors[idx] = color;
             } else {
                 colors[idx] = 0;
@@ -159,10 +162,15 @@ esp_err_t color_mapper_deinit(void) {
 }
 
 esp_err_t color_mapper_map_spectrum(const rhythm_spectrum_t* spectrum, rhythm_scene_t scene, 
-                                   const rhythm_effect_config_t* config, uint32_t* colors) {
+                                   const rhythm_effect_config_t* config, uint32_t* colors,
+                                   uint16_t matrix_rows, uint16_t matrix_cols) {
     if (!s_initialized || !spectrum || !config || !colors) {
         return ESP_ERR_INVALID_ARG;
     }
+    
+    s_matrix_rows = matrix_rows;
+    s_matrix_cols = matrix_cols;
+    s_matrix_pixels = matrix_rows * matrix_cols;
     
     s_frame_counter++;
     

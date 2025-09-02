@@ -1,7 +1,6 @@
 #include "rhythm_visualizer.h"
 #include "spectrum_analyzer.h"
 #include "color_mapper.h"
-#include "bsp/esp32_c5_sensairpanel.h"
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
@@ -9,8 +8,6 @@
 #include "freertos/queue.h"
 #include <string.h>
 #include <math.h>
-#include "esp_spiffs.h"
-#include <sys/stat.h>
 
 static const char *TAG = "RHYTHM_VISUALIZER";
 
@@ -29,27 +26,52 @@ static struct {
     QueueHandle_t audio_queue;
     esp_timer_handle_t frame_timer;
     
-    uint32_t color_buffer[RHYTHM_MATRIX_PIXELS];
+    uint32_t* color_buffer;
     rhythm_spectrum_t last_spectrum;
     
     char* audio_file_path;
     bool is_audio_file_mode;
+    
+    uint16_t matrix_rows;
+    uint16_t matrix_cols;
+    rhythm_hardware_interface_t hw_interface;
+    void* user_data;
 } s_rhythm_ctx = {0};
 
 static void render_task_function(void* arg);
 static void frame_timer_callback(void* arg);
 
-esp_err_t rhythm_visualizer_init(void) {
+esp_err_t rhythm_visualizer_init(const rhythm_config_t* config) {
+    if (!config) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    
     if (s_rhythm_ctx.initialized) {
         return ESP_OK;
     }
     
     memset(&s_rhythm_ctx, 0, sizeof(s_rhythm_ctx));
     
-    esp_err_t ret = bsp_led_matrix_init();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "LED matrix init failed");
-        return ret;
+    s_rhythm_ctx.matrix_rows = config->matrix_rows;
+    s_rhythm_ctx.matrix_cols = config->matrix_cols;
+    s_rhythm_ctx.hw_interface = config->hw_interface;
+    s_rhythm_ctx.user_data = config->user_data;
+    
+    size_t matrix_pixels = s_rhythm_ctx.matrix_rows * s_rhythm_ctx.matrix_cols;
+    s_rhythm_ctx.color_buffer = (uint32_t*)malloc(matrix_pixels * sizeof(uint32_t));
+    if (!s_rhythm_ctx.color_buffer) {
+        ESP_LOGE(TAG, "Failed to allocate color buffer");
+        return ESP_ERR_NO_MEM;
+    }
+    
+    esp_err_t ret = ESP_OK;
+    if (s_rhythm_ctx.hw_interface.led_matrix_init) {
+        ret = s_rhythm_ctx.hw_interface.led_matrix_init(s_rhythm_ctx.user_data);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "LED matrix init failed");
+            free(s_rhythm_ctx.color_buffer);
+            return ret;
+        }
     }
     
     ret = spectrum_analyzer_init();
@@ -101,8 +123,21 @@ esp_err_t rhythm_visualizer_deinit(void) {
     
     color_mapper_deinit();
     spectrum_analyzer_deinit();
-    bsp_led_matrix_clear();
-    bsp_led_matrix_refresh();
+    
+    if (s_rhythm_ctx.hw_interface.led_matrix_clear) {
+        s_rhythm_ctx.hw_interface.led_matrix_clear(s_rhythm_ctx.user_data);
+    }
+    if (s_rhythm_ctx.hw_interface.led_matrix_refresh) {
+        s_rhythm_ctx.hw_interface.led_matrix_refresh(s_rhythm_ctx.user_data);
+    }
+    if (s_rhythm_ctx.hw_interface.led_matrix_deinit) {
+        s_rhythm_ctx.hw_interface.led_matrix_deinit(s_rhythm_ctx.user_data);
+    }
+    
+    if (s_rhythm_ctx.color_buffer) {
+        free(s_rhythm_ctx.color_buffer);
+        s_rhythm_ctx.color_buffer = NULL;
+    }
     
     s_rhythm_ctx.initialized = false;
     
@@ -117,10 +152,13 @@ esp_err_t rhythm_start_natural_sound(rhythm_scene_t scene, const char* audio_fil
     
     rhythm_stop();
     
-    esp_err_t ret = bsp_wav_init_async();
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to init WAV player");
-        return ret;
+    esp_err_t ret = ESP_OK;
+    if (s_rhythm_ctx.hw_interface.audio_player_init) {
+        ret = s_rhythm_ctx.hw_interface.audio_player_init(s_rhythm_ctx.user_data);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to init audio player");
+            return ret;
+        }
     }
     
     if (audio_file) {
@@ -132,12 +170,14 @@ esp_err_t rhythm_start_natural_sound(rhythm_scene_t scene, const char* audio_fil
         strcpy(s_rhythm_ctx.audio_file_path, audio_file);
         s_rhythm_ctx.is_audio_file_mode = true;
         
-        ret = bsp_wav_play_file_async(audio_file);
-        if (ret != ESP_OK) {
-            ESP_LOGE(TAG, "Failed to start audio playback");
-            free(s_rhythm_ctx.audio_file_path);
-            s_rhythm_ctx.audio_file_path = NULL;
-            return ret;
+        if (s_rhythm_ctx.hw_interface.audio_play_file) {
+            ret = s_rhythm_ctx.hw_interface.audio_play_file(audio_file, s_rhythm_ctx.user_data);
+            if (ret != ESP_OK) {
+                ESP_LOGE(TAG, "Failed to start audio playback");
+                free(s_rhythm_ctx.audio_file_path);
+                s_rhythm_ctx.audio_file_path = NULL;
+                return ret;
+            }
         }
     } else {
         s_rhythm_ctx.is_audio_file_mode = false;
@@ -199,8 +239,8 @@ esp_err_t rhythm_stop(void) {
         s_rhythm_ctx.render_task = NULL;
     }
     
-    if (s_rhythm_ctx.is_audio_file_mode) {
-        bsp_wav_stop();
+    if (s_rhythm_ctx.is_audio_file_mode && s_rhythm_ctx.hw_interface.audio_stop) {
+        s_rhythm_ctx.hw_interface.audio_stop(s_rhythm_ctx.user_data);
     }
     
     if (s_rhythm_ctx.audio_file_path) {
@@ -208,8 +248,12 @@ esp_err_t rhythm_stop(void) {
         s_rhythm_ctx.audio_file_path = NULL;
     }
     
-    bsp_led_matrix_clear();
-    bsp_led_matrix_refresh();
+    if (s_rhythm_ctx.hw_interface.led_matrix_clear) {
+        s_rhythm_ctx.hw_interface.led_matrix_clear(s_rhythm_ctx.user_data);
+    }
+    if (s_rhythm_ctx.hw_interface.led_matrix_refresh) {
+        s_rhythm_ctx.hw_interface.led_matrix_refresh(s_rhythm_ctx.user_data);
+    }
     
     ESP_LOGI(TAG, "Rhythm visualizer stopped");
     return ESP_OK;
@@ -321,15 +365,19 @@ static void frame_timer_callback(void* arg) {
     esp_err_t ret = color_mapper_map_spectrum(&s_rhythm_ctx.last_spectrum, 
                                              s_rhythm_ctx.current_scene,
                                              &s_rhythm_ctx.config,
-                                             s_rhythm_ctx.color_buffer);
+                                             s_rhythm_ctx.color_buffer,
+                                             s_rhythm_ctx.matrix_rows,
+                                             s_rhythm_ctx.matrix_cols);
     
-    if (ret == ESP_OK) {
-        for (int y = 0; y < RHYTHM_MATRIX_ROWS; y++) {
-            for (int x = 0; x < RHYTHM_MATRIX_COLS; x++) {
-                int idx = y * RHYTHM_MATRIX_COLS + x;
-                bsp_led_matrix_set_pixel(x, y, s_rhythm_ctx.color_buffer[idx]);
+    if (ret == ESP_OK && s_rhythm_ctx.hw_interface.led_matrix_set_pixel) {
+        for (int y = 0; y < s_rhythm_ctx.matrix_rows; y++) {
+            for (int x = 0; x < s_rhythm_ctx.matrix_cols; x++) {
+                int idx = y * s_rhythm_ctx.matrix_cols + x;
+                s_rhythm_ctx.hw_interface.led_matrix_set_pixel(x, y, s_rhythm_ctx.color_buffer[idx], s_rhythm_ctx.user_data);
             }
         }
-        bsp_led_matrix_refresh();
+        if (s_rhythm_ctx.hw_interface.led_matrix_refresh) {
+            s_rhythm_ctx.hw_interface.led_matrix_refresh(s_rhythm_ctx.user_data);
+        }
     }
 } 
