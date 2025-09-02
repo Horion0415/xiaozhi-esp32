@@ -41,6 +41,9 @@
 
 static const char *TAG = "ESP32-C5-Sensairpanel";
 
+static size_t read_wav_data_chunk(FILE *fp, long *data_offset, uint32_t *data_size);
+static esp_err_t bsp_wav_play_file_internal(const char *file_path);
+
 /**
  * @brief ESP32-C5-Sensairpanel I2S pinout
  *
@@ -127,8 +130,100 @@ static const led_strip_rmt_config_t bsp_rmt_config = {
     .flags.with_dma = false,
 };
 
+typedef struct {
+    char file_path[128];
+    bool stop_current;
+} wav_play_request_t;
 
+static TaskHandle_t s_wav_task_handle = NULL;
+static QueueHandle_t s_wav_queue = NULL;
+static SemaphoreHandle_t s_wav_mutex = NULL;
+static volatile bool s_wav_task_running = false;
 
+static void wav_play_task(void *arg)
+{
+    wav_play_request_t request;
+    s_wav_task_running = true;
+    
+    while (s_wav_task_running) {
+        if (xQueueReceive(s_wav_queue, &request, pdMS_TO_TICKS(50)) == pdTRUE) {
+            if (xSemaphoreTake(s_wav_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                if (request.stop_current) {
+                    s_wav_playing = false;
+                    vTaskDelay(pdMS_TO_TICKS(5));
+                }
+                
+                if (request.file_path[0] != '\0' && s_wav_task_running) {
+                    bsp_wav_play_file_internal(request.file_path);
+                }
+                xSemaphoreGive(s_wav_mutex);
+            }
+        }
+    }
+    vTaskDelete(NULL);
+}
+
+static esp_err_t bsp_wav_play_file_internal(const char *file_path)
+{
+    if (!file_path) return ESP_ERR_INVALID_ARG;
+    if (!speaker_dev_handle) {
+        speaker_dev_handle = bsp_audio_codec_speaker_init();
+        if (!speaker_dev_handle) return ESP_FAIL;
+    }
+    esp_codec_dev_sample_info_t fs = {
+        .sample_rate = BSP_OUTPUT_SAMPLE_RATE,
+        .channel = 1,
+        .bits_per_sample = 16,
+    };
+    {
+        esp_err_t orc = esp_codec_dev_open(speaker_dev_handle, &fs);
+        if (orc == ESP_OK) {
+            speaker_device_opened = true;
+            if (BSP_PA_CTL_GPIO != GPIO_NUM_NC) gpio_set_level(BSP_PA_CTL_GPIO, 1);
+        }
+    }
+    FILE *fp = fopen(file_path, "rb");
+    if (!fp) return ESP_FAIL;
+    uint8_t header[44];
+    if (fread(header, 1, sizeof(header), fp) != sizeof(header)) { fclose(fp); return ESP_FAIL; }
+    if (memcmp(header, "RIFF", 4) || memcmp(header + 8, "WAVE", 4)) { fclose(fp); return ESP_FAIL; }
+    long data_off = 0; uint32_t data_sz = 0;
+    if (!read_wav_data_chunk(fp, &data_off, &data_sz)) { fclose(fp); return ESP_FAIL; }
+    fseek(fp, data_off, SEEK_SET);
+    const size_t buf_sz = 1024;
+    uint8_t *buf = (uint8_t *)heap_caps_malloc(buf_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) { fclose(fp); return ESP_ERR_NO_MEM; }
+    s_wav_playing = true;
+    bool reopen_tried = false;
+    uint32_t write_count = 0;
+    while (data_sz > 0 && s_wav_playing && s_wav_task_running) {
+        size_t to_read = data_sz > buf_sz ? buf_sz : data_sz;
+        size_t r = fread(buf, 1, to_read, fp);
+        if (r == 0) break;
+        
+        if (!s_wav_playing || !s_wav_task_running) break;
+        
+        esp_err_t ret = esp_codec_dev_write(speaker_dev_handle, buf, r);
+        if (ret != ESP_OK) {
+            if (!reopen_tried) {
+                esp_codec_dev_open(speaker_dev_handle, &fs);
+                reopen_tried = true;
+                continue;
+            }
+            break;
+        }
+        data_sz -= r;
+        write_count++;
+        
+        if (write_count % 4 == 0) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+    }
+    s_wav_playing = false;
+    heap_caps_free(buf);
+    fclose(fp);
+    return ESP_OK;
+}
 
 /* Power control */
 void __attribute__((constructor)) bsp_power_control_init(void)
@@ -707,61 +802,93 @@ static size_t read_wav_data_chunk(FILE *fp, long *data_offset, uint32_t *data_si
     }
 }
 
-esp_err_t bsp_wav_play_file(const char *file_path)
+esp_err_t bsp_wav_init_async(void)
+{
+    if (s_wav_task_handle) {
+        return ESP_OK;
+    }
+    
+    s_wav_queue = xQueueCreate(8, sizeof(wav_play_request_t));
+    if (!s_wav_queue) {
+        return ESP_FAIL;
+    }
+    
+    s_wav_mutex = xSemaphoreCreateMutex();
+    if (!s_wav_mutex) {
+        vQueueDelete(s_wav_queue);
+        s_wav_queue = NULL;
+        return ESP_FAIL;
+    }
+    
+    BaseType_t ret = xTaskCreate(wav_play_task, "wav_play", 4096, NULL, 5, &s_wav_task_handle);
+    if (ret != pdPASS) {
+        vQueueDelete(s_wav_queue);
+        vSemaphoreDelete(s_wav_mutex);
+        s_wav_queue = NULL;
+        s_wav_mutex = NULL;
+        return ESP_FAIL;
+    }
+    
+    return ESP_OK;
+}
+
+esp_err_t bsp_wav_play_file_async(const char *file_path)
 {
     if (!file_path) return ESP_ERR_INVALID_ARG;
-    if (!speaker_dev_handle) {
-        speaker_dev_handle = bsp_audio_codec_speaker_init();
-        if (!speaker_dev_handle) return ESP_FAIL;
+    
+    if (bsp_wav_init_async() != ESP_OK) {
+        return ESP_FAIL;
     }
-    esp_codec_dev_sample_info_t fs = {
-        .sample_rate = BSP_OUTPUT_SAMPLE_RATE,
-        .channel = 1,
-        .bits_per_sample = 16,
-    };
-    {
-        esp_err_t orc = esp_codec_dev_open(speaker_dev_handle, &fs);
-        if (orc == ESP_OK) {
-            speaker_device_opened = true;
-            if (BSP_PA_CTL_GPIO != GPIO_NUM_NC) gpio_set_level(BSP_PA_CTL_GPIO, 1);
-        }
+    
+    wav_play_request_t request = {0};
+    strncpy(request.file_path, file_path, sizeof(request.file_path) - 1);
+    request.stop_current = true;
+    
+    UBaseType_t queue_items = uxQueueMessagesWaiting(s_wav_queue);
+    if (queue_items > 4) {
+        xQueueReset(s_wav_queue);
     }
-    FILE *fp = fopen(file_path, "rb");
-    if (!fp) return ESP_FAIL;
-    uint8_t header[44];
-    if (fread(header, 1, sizeof(header), fp) != sizeof(header)) { fclose(fp); return ESP_FAIL; }
-    if (memcmp(header, "RIFF", 4) || memcmp(header + 8, "WAVE", 4)) { fclose(fp); return ESP_FAIL; }
-    long data_off = 0; uint32_t data_sz = 0;
-    if (!read_wav_data_chunk(fp, &data_off, &data_sz)) { fclose(fp); return ESP_FAIL; }
-    fseek(fp, data_off, SEEK_SET);
-    const size_t buf_sz = 2048;
-    uint8_t *buf = (uint8_t *)heap_caps_malloc(buf_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!buf) { fclose(fp); return ESP_ERR_NO_MEM; }
-    s_wav_playing = true;
-    bool reopen_tried = false;
-    while (data_sz > 0 && s_wav_playing) {
-        size_t to_read = data_sz > buf_sz ? buf_sz : data_sz;
-        size_t r = fread(buf, 1, to_read, fp);
-        if (r == 0) break;
-        esp_err_t ret = esp_codec_dev_write(speaker_dev_handle, buf, r);
-        if (ret != ESP_OK) {
-            if (!reopen_tried) {
-                esp_codec_dev_open(speaker_dev_handle, &fs);
-                reopen_tried = true;
-                continue;
-            }
-            break;
-        }
-        data_sz -= r;
+    
+    if (xQueueSend(s_wav_queue, &request, 0) != pdTRUE) {
+        xQueueReset(s_wav_queue);
+        return xQueueSend(s_wav_queue, &request, 0) == pdTRUE ? ESP_OK : ESP_FAIL;
     }
-    s_wav_playing = false;
-    heap_caps_free(buf);
-    fclose(fp);
+    
     return ESP_OK;
+}
+
+esp_err_t bsp_wav_play_file(const char *file_path)
+{
+    return bsp_wav_play_file_async(file_path);
 }
 
 esp_err_t bsp_wav_stop(void)
 {
+    if (s_wav_queue) {
+        xQueueReset(s_wav_queue);
+    }
+    s_wav_playing = false;
+    return ESP_OK;
+}
+
+esp_err_t bsp_wav_deinit_async(void)
+{
+    if (s_wav_task_handle) {
+        s_wav_task_running = false;
+        vTaskDelay(pdMS_TO_TICKS(50));
+        s_wav_task_handle = NULL;
+    }
+    
+    if (s_wav_queue) {
+        vQueueDelete(s_wav_queue);
+        s_wav_queue = NULL;
+    }
+    
+    if (s_wav_mutex) {
+        vSemaphoreDelete(s_wav_mutex);
+        s_wav_mutex = NULL;
+    }
+    
     s_wav_playing = false;
     return ESP_OK;
 }
