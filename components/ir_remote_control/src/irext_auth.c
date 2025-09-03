@@ -121,6 +121,10 @@ esp_err_t irext_auth_login(void)
         return ESP_ERR_INVALID_STATE;
     }
 
+    ESP_LOGI(TAG, "=== Starting IRext Authentication ===");
+    ESP_LOGI(TAG, "Server URL: %s", g_config.server_url);
+    ESP_LOGI(TAG, "APP Key: %.10s...", g_config.app_key);
+    ESP_LOGI(TAG, "APP Secret: %.10s...", g_config.app_secret);
     ESP_LOGI(TAG, "Login to IRext service");
 
     char url[256];
@@ -163,12 +167,22 @@ esp_err_t irext_auth_login(void)
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (!client) {
+        ESP_LOGE(TAG, "Failed to create HTTP client");
+        free(response.buffer);
+        free(json_string);
+        cJSON_Delete(json);
+        return ESP_ERR_NO_MEM;
+    }
+    
     esp_http_client_set_header(client, "Content-Type", "application/json");
     #ifdef CONFIG_IR_USER_LANG
     esp_http_client_set_header(client, "user-lang", CONFIG_IR_USER_LANG);
+    ESP_LOGI(TAG, "Set user-lang header: %s", CONFIG_IR_USER_LANG);
     #endif
     esp_http_client_set_post_field(client, json_string, strlen(json_string));
 
+    ESP_LOGI(TAG, "Sending HTTP POST request...");
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK) {
         int status_code = esp_http_client_get_status_code(client);
@@ -206,7 +220,28 @@ esp_err_t irext_auth_login(void)
                             err = ESP_ERR_INVALID_RESPONSE;
                         }
                     } else {
-                        ESP_LOGE(TAG, "Login failed with status code %d", code_item ? code_item->valueint : -1);
+                        int error_code = code_item ? code_item->valueint : -1;
+                        ESP_LOGE(TAG, "Login failed with status code %d", error_code);
+                        
+                        cJSON *message_item = cJSON_GetObjectItem(status_obj, "message");
+                        if (message_item && cJSON_IsString(message_item)) {
+                            ESP_LOGE(TAG, "Error message: %s", message_item->valuestring);
+                        }
+                        
+                        switch(error_code) {
+                            case 1:
+                                ESP_LOGE(TAG, "Authentication failed - Invalid APP_KEY or APP_SECRET");
+                                break;
+                            case 2:
+                                ESP_LOGE(TAG, "Parameter error - Check request format");
+                                break;
+                            case 3:
+                                ESP_LOGE(TAG, "Permission denied - Check account permissions");
+                                break;
+                            default:
+                                ESP_LOGE(TAG, "Unknown error code: %d", error_code);
+                                break;
+                        }
                         err = ESP_FAIL;
                     }
                 } else {
@@ -220,10 +255,49 @@ esp_err_t irext_auth_login(void)
             }
         } else {
             ESP_LOGE(TAG, "Login HTTP error: %d", status_code);
+            ESP_LOGE(TAG, "Response content: %.*s", (response_len < 200 ? response_len : 200), response.buffer);
+            
+            // 分析HTTP错误码
+            switch(status_code) {
+                case 404:
+                    ESP_LOGE(TAG, "Server endpoint not found - Check server URL");
+                    break;
+                case 403:
+                    ESP_LOGE(TAG, "Access forbidden - Check APP credentials");
+                    break;
+                case 500:
+                    ESP_LOGE(TAG, "Server internal error");
+                    break;
+                case 0:
+                    ESP_LOGE(TAG, "Network connection failed - Check WiFi and DNS");
+                    break;
+                default:
+                    ESP_LOGE(TAG, "HTTP error %d", status_code);
+                    break;
+            }
             err = ESP_FAIL;
         }
     } else {
         ESP_LOGE(TAG, "Login HTTP request failed: %s", esp_err_to_name(err));
+        
+        // 分析具体的网络错误
+        switch(err) {
+            case ESP_ERR_HTTP_CONNECT:
+                ESP_LOGE(TAG, "Cannot connect to server - Check network and server URL");
+                break;
+            case ESP_ERR_HTTP_WRITE_DATA:
+                ESP_LOGE(TAG, "Failed to send data - Network issue");
+                break;
+            case ESP_ERR_HTTP_FETCH_HEADER:
+                ESP_LOGE(TAG, "Failed to receive header - Server issue");
+                break;
+            case ESP_ERR_TIMEOUT:
+                ESP_LOGE(TAG, "Request timeout - Server too slow or network issue");
+                break;
+            default:
+                ESP_LOGE(TAG, "Network error: %s", esp_err_to_name(err));
+                break;
+        }
     }
 
     esp_http_client_cleanup(client);

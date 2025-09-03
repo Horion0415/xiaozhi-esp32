@@ -46,8 +46,10 @@ esp_err_t ir_remote_init(const ir_tx_config_t *tx_config, const ir_irext_config_
         return ESP_ERR_INVALID_ARG;
     }
 
-    ESP_LOGI(TAG, "Initializing IRext Online IR Remote Control");
+    ESP_LOGI(TAG, "=== Initializing IRext Online IR Remote Control ===");
     ESP_LOGI(TAG, "  TX GPIO: %d, Carrier: %dHz", tx_config->tx_gpio, tx_config->carrier_freq_hz);
+    ESP_LOGI(TAG, "  Resolution: %dHz", tx_config->resolution_hz);
+    ESP_LOGI(TAG, "  Invert Signal: %s", tx_config->invert_signal ? "Yes" : "No");
 
     // Initialize IR transmitter hardware
     esp_err_t ret = ir_transmitter_init(tx_config);
@@ -59,16 +61,31 @@ esp_err_t ir_remote_init(const ir_tx_config_t *tx_config, const ir_irext_config_
     // Store configurations
     memcpy(&g_tx_config, tx_config, sizeof(ir_tx_config_t));
     if (irext_config) {
+        ESP_LOGI(TAG, "Using provided IRext config");
         memcpy(&g_irext_config, irext_config, sizeof(ir_irext_config_t));
     } else {
+        ESP_LOGI(TAG, "Using Kconfig defaults for IRext");
         // Use Kconfig defaults
         g_irext_config.server_url = CONFIG_IR_SERVER_URL;
         g_irext_config.app_key = CONFIG_IR_APP_KEY;
         g_irext_config.app_secret = CONFIG_IR_APP_SECRET;
         g_irext_config.auto_login = CONFIG_IR_AUTO_LOGIN;
+#ifdef CONFIG_IR_TOKEN_CACHE_ENABLED
         g_irext_config.cache_token = CONFIG_IR_TOKEN_CACHE_ENABLED;
+#else
+        g_irext_config.cache_token = false;
+#endif
         g_irext_config.timeout_ms = CONFIG_IR_API_TIMEOUT_MS;
     }
+    
+    // Log the configuration details
+    ESP_LOGI(TAG, "IRext Configuration:");
+    ESP_LOGI(TAG, "  Server URL: %s", g_irext_config.server_url);
+    ESP_LOGI(TAG, "  Auto Login: %s", g_irext_config.auto_login ? "Enabled" : "Disabled");
+    ESP_LOGI(TAG, "  Token Cache: %s", g_irext_config.cache_token ? "Enabled" : "Disabled");
+    ESP_LOGI(TAG, "  Timeout: %dms", g_irext_config.timeout_ms);
+    ESP_LOGI(TAG, "  APP Key: %.10s... (length: %d)", g_irext_config.app_key, strlen(g_irext_config.app_key));
+    ESP_LOGI(TAG, "  APP Secret: %.10s... (length: %d)", g_irext_config.app_secret, strlen(g_irext_config.app_secret));
 
     // Initialize IRext authentication
     ret = irext_auth_init(&g_irext_config);
@@ -88,7 +105,17 @@ esp_err_t ir_remote_init(const ir_tx_config_t *tx_config, const ir_irext_config_
     }
 
     g_ir_initialized = true;
-    ESP_LOGI(TAG, "IRext Online IR Remote Control initialized successfully");
+    
+    // 检查认证状态
+    ESP_LOGI(TAG, "Checking authentication status...");
+    bool auth_valid = irext_auth_is_valid();
+    ESP_LOGI(TAG, "Authentication status: %s", auth_valid ? "VALID" : "INVALID");
+    
+    if (!auth_valid && g_irext_config.auto_login) {
+        ESP_LOGW(TAG, "Auto login enabled but auth invalid - login should have been attempted");
+    }
+    
+    ESP_LOGI(TAG, "=== IRext Online IR Remote Control initialized successfully ===");
     ESP_LOGI(TAG, "Server: %s", g_irext_config.server_url);
 
     return ESP_OK;

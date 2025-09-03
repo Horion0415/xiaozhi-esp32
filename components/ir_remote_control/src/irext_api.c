@@ -790,7 +790,21 @@ esp_err_t irext_api_get_brand_id(ir_device_category_t category, const char *bran
                     ESP_LOGE(TAG, "Brands: entity not array");
                 }
             } else {
-                ESP_LOGE(TAG, "Brands status code invalid");
+                cJSON *code_item = cJSON_GetObjectItem(status, "code");
+                int error_code = code_item && cJSON_IsNumber(code_item) ? code_item->valueint : -1;
+                ESP_LOGE(TAG, "Brands status code invalid: %d", error_code);
+                
+                switch(error_code) {
+                    case 1:
+                        ESP_LOGE(TAG, "Brand Query Error: Authentication failed - Check token validity");
+                        break;
+                    case 2:
+                        ESP_LOGE(TAG, "Brand Query Error: Invalid category - Check device category");
+                        break;
+                    default:
+                        ESP_LOGE(TAG, "Brand Query Error: Unknown error code %d", error_code);
+                        break;
+                }
             }
             cJSON_Delete(resp);
         } else {
@@ -818,159 +832,216 @@ esp_err_t irext_api_decode_command(uint32_t index_id, uint32_t key_code, const i
     *ir_data = NULL;
     *data_length = 0;
 
-    esp_err_t err = irext_auth_refresh_if_needed();
-    if (err != ESP_OK) return err;
-
-    cJSON *json = cJSON_CreateObject();
-    if (!json) {
-        return ESP_ERR_NO_MEM;
-    }
-
-    cJSON_AddNumberToObject(json, "indexId", index_id);
-    cJSON_AddNumberToObject(json, "keyCode", key_code);
+    const int max_retries = 2;
+    esp_err_t last_error = ESP_FAIL;
     
-    if (ac_status) {
-        uint8_t temp_offset = ac_status->temperature;
-        ir_ac_parameters_t p;
-        if (irext_api_get_ac_parameters(index_id, ac_status->mode, &p) == ESP_OK) {
-            if (temp_offset < p.temp_min) temp_offset = p.temp_min;
-            if (temp_offset > p.temp_max) temp_offset = p.temp_max;
-            if (p.temp_min <= p.temp_max) {
-                temp_offset = temp_offset - p.temp_min;
-            } else {
-                temp_offset = temp_offset - 16;
-            }
-        } else {
-            temp_offset = (temp_offset >= 16) ? (temp_offset - 16) : 0;
-        }
-        cJSON *ac_status_obj = cJSON_CreateObject();
-        if (!ac_status_obj) {
-            cJSON_Delete(json);
+    for (int retry = 0; retry < max_retries; retry++) {
+        esp_err_t err = irext_auth_refresh_if_needed();
+        if (err != ESP_OK) return err;
+
+        cJSON *json = cJSON_CreateObject();
+        if (!json) {
             return ESP_ERR_NO_MEM;
         }
-        int acPower = (ac_status->power == IR_AC_POWER_ON) ? 0 : 1; // Web API: 0=ON,1=OFF
-        cJSON_AddNumberToObject(ac_status_obj, "acPower", acPower);
-        cJSON_AddNumberToObject(ac_status_obj, "acMode", ac_status->mode);
-        cJSON_AddNumberToObject(ac_status_obj, "acTemp", temp_offset);
-        cJSON_AddNumberToObject(ac_status_obj, "acWindSpeed", ac_status->wind_speed);
-        int acWindDir = (ac_status->swing == IR_AC_SWING_ON) ? 1 : 0; // 1=swing, 0=fixed
-        cJSON_AddNumberToObject(ac_status_obj, "acWindDir", acWindDir);
-        cJSON_AddItemToObject(json, "acStatus", ac_status_obj);
-    }
-    
-    cJSON_AddNumberToObject(json, "changeWindDir", change_wind_dir);
-    cJSON_AddNumberToObject(json, "paraData", para_data);
 
-    char *base_json = cJSON_Print(json);
-    cJSON_Delete(json);
-
-    if (!base_json) {
-        ESP_LOGE(TAG, "Failed to print JSON");
-        return ESP_ERR_NO_MEM;
-    }
-
-    size_t auth_body_size = 4096;
-    char *auth_body = (char *)heap_caps_malloc(auth_body_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!auth_body) auth_body = (char *)malloc(auth_body_size);
-    if (!auth_body) {
-        ESP_LOGE(TAG, "Failed to allocate auth body buffer");
-        free(base_json);
-        return ESP_ERR_NO_MEM;
-    }
-
-    err = irext_auth_build_request_body(base_json, auth_body, auth_body_size);
-    free(base_json);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to build auth request body: %s", esp_err_to_name(err));
-        free(auth_body);
-        return err;
-    }
-
-    char *response = NULL;
-    size_t response_len = 0;
-    err = http_post_request("/operation/decode", auth_body, &response, &response_len);
-
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
-        free(auth_body);
-        return err;
-    }
-
-    if (!response) {
-        ESP_LOGE(TAG, "Received null response");
-        free(auth_body);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-
-    cJSON *response_json = cJSON_Parse(response);
-    if (!response_json) {
-        ESP_LOGE(TAG, "Failed to parse response JSON");
-        free(response);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-
-    cJSON *status_obj = cJSON_GetObjectItem(response_json, "status");
-    if (!status_obj) {
-        ESP_LOGE(TAG, "No status object in response");
-        cJSON_Delete(response_json);
-        free(response);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-
-    cJSON *code_item = cJSON_GetObjectItem(status_obj, "code");
-    if (!code_item || !cJSON_IsNumber(code_item)) {
-        ESP_LOGE(TAG, "Invalid status code in response");
-        cJSON_Delete(response_json);
-        free(response);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-
-    if (code_item->valueint != 0) {
-        ESP_LOGE(TAG, "Decode API failed with code %d", code_item->valueint);
-        cJSON_Delete(response_json);
-        free(response);
-        return ESP_FAIL;
-    }
-
-    cJSON *entity = cJSON_GetObjectItem(response_json, "entity");
-    if (!entity || !cJSON_IsArray(entity)) {
-        cJSON_Delete(response_json);
-        free(response);
-        return ESP_ERR_INVALID_RESPONSE;
-    }
-
-    int array_size = cJSON_GetArraySize(entity);
-    if ((array_size % 2) != 0) {
-        ESP_LOGW(TAG, "Decoded timings length is odd: %d", array_size);
-    }
-    if (array_size < 2) {
-        ESP_LOGW(TAG, "Decoded timings length too short: %d", array_size);
-    }
-
-    *ir_data = (uint32_t *)heap_caps_malloc(array_size * sizeof(uint32_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!*ir_data) *ir_data = (uint32_t *)malloc(array_size * sizeof(uint32_t));
-    if (!*ir_data) {
-        cJSON_Delete(response_json);
-        free(response);
-        return ESP_ERR_NO_MEM;
-    }
-
-    *data_length = array_size;
-    
-    for (int i = 0; i < array_size; i++) {
-        cJSON *item = cJSON_GetArrayItem(entity, i);
-        if (cJSON_IsNumber(item)) {
-            (*ir_data)[i] = item->valueint;
-        } else {
-            (*ir_data)[i] = 0; 
+        cJSON_AddNumberToObject(json, "indexId", index_id);
+        cJSON_AddNumberToObject(json, "keyCode", key_code);
+        
+        if (ac_status) {
+            uint8_t temp_offset = ac_status->temperature;
+            ir_ac_parameters_t p;
+            if (irext_api_get_ac_parameters(index_id, ac_status->mode, &p) == ESP_OK) {
+                if (temp_offset < p.temp_min) temp_offset = p.temp_min;
+                if (temp_offset > p.temp_max) temp_offset = p.temp_max;
+                if (p.temp_min <= p.temp_max) {
+                    temp_offset = temp_offset - p.temp_min;
+                } else {
+                    temp_offset = temp_offset - 16;
+                }
+            } else {
+                temp_offset = (temp_offset >= 16) ? (temp_offset - 16) : 0;
+            }
+            cJSON *ac_status_obj = cJSON_CreateObject();
+            if (!ac_status_obj) {
+                cJSON_Delete(json);
+                return ESP_ERR_NO_MEM;
+            }
+            int acPower = (ac_status->power == IR_AC_POWER_ON) ? 0 : 1;
+            cJSON_AddNumberToObject(ac_status_obj, "acPower", acPower);
+            cJSON_AddNumberToObject(ac_status_obj, "acMode", ac_status->mode);
+            cJSON_AddNumberToObject(ac_status_obj, "acTemp", temp_offset);
+            cJSON_AddNumberToObject(ac_status_obj, "acWindSpeed", ac_status->wind_speed);
+            int acWindDir = (ac_status->swing == IR_AC_SWING_ON) ? 1 : 0;
+            cJSON_AddNumberToObject(ac_status_obj, "acWindDir", acWindDir);
+            cJSON_AddItemToObject(json, "acStatus", ac_status_obj);
         }
-    }
+        
+        cJSON_AddNumberToObject(json, "changeWindDir", change_wind_dir);
+        cJSON_AddNumberToObject(json, "paraData", para_data);
 
-    cJSON_Delete(response_json);
-    free(response);
-    free(auth_body);
-    return ESP_OK;
+        char *base_json = cJSON_Print(json);
+        cJSON_Delete(json);
+
+        if (!base_json) {
+            ESP_LOGE(TAG, "Failed to print JSON");
+            return ESP_ERR_NO_MEM;
+        }
+
+        size_t auth_body_size = 4096;
+        char *auth_body = (char *)heap_caps_malloc(auth_body_size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!auth_body) auth_body = (char *)malloc(auth_body_size);
+        if (!auth_body) {
+            ESP_LOGE(TAG, "Failed to allocate auth body buffer");
+            free(base_json);
+            return ESP_ERR_NO_MEM;
+        }
+
+        err = irext_auth_build_request_body(base_json, auth_body, auth_body_size);
+        free(base_json);
+
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to build auth request body: %s", esp_err_to_name(err));
+            free(auth_body);
+            return err;
+        }
+
+        char *response = NULL;
+        size_t response_len = 0;
+        err = http_post_request("/operation/decode", auth_body, &response, &response_len);
+
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
+            free(auth_body);
+            last_error = err;
+            continue;
+        }
+
+        if (!response) {
+            ESP_LOGE(TAG, "Received null response");
+            free(auth_body);
+            last_error = ESP_ERR_INVALID_RESPONSE;
+            continue;
+        }
+
+        cJSON *response_json = cJSON_Parse(response);
+        if (!response_json) {
+            ESP_LOGE(TAG, "Failed to parse response JSON");
+            free(response);
+            free(auth_body);
+            last_error = ESP_ERR_INVALID_RESPONSE;
+            continue;
+        }
+
+        cJSON *status_obj = cJSON_GetObjectItem(response_json, "status");
+        if (!status_obj) {
+            ESP_LOGE(TAG, "No status object in response");
+            cJSON_Delete(response_json);
+            free(response);
+            free(auth_body);
+            last_error = ESP_ERR_INVALID_RESPONSE;
+            continue;
+        }
+
+        cJSON *code_item = cJSON_GetObjectItem(status_obj, "code");
+        if (!code_item || !cJSON_IsNumber(code_item)) {
+            ESP_LOGE(TAG, "Invalid status code in response");
+            cJSON_Delete(response_json);
+            free(response);
+            free(auth_body);
+            last_error = ESP_ERR_INVALID_RESPONSE;
+            continue;
+        }
+
+        if (code_item->valueint != 0) {
+            int error_code = code_item->valueint;
+            ESP_LOGE(TAG, "Decode API failed with code %d (attempt %d/%d)", error_code, retry + 1, max_retries);
+            
+            bool should_retry = false;
+            switch(error_code) {
+                case 1:
+                    ESP_LOGE(TAG, "Decode Error: Authentication failed - Token invalid or expired");
+                    if (retry < max_retries - 1) {
+                        ESP_LOGW(TAG, "Clearing auth cache and retrying...");
+                        irext_auth_clear_cache();
+                        should_retry = true;
+                    }
+                    break;
+                case 2:
+                    ESP_LOGE(TAG, "Decode Error: Invalid parameters - Check index_id, key_code or AC status");
+                    break;
+                case 3:
+                    ESP_LOGE(TAG, "Decode Error: Device not found or decode failed");
+                    break;
+                case 4:
+                    ESP_LOGE(TAG, "Decode Error: Protocol not supported");
+                    break;
+                case -1:
+                default:
+                    ESP_LOGE(TAG, "Decode Error: Unknown error code %d", error_code);
+                    if (retry < max_retries - 1 && error_code == -1) {
+                        ESP_LOGW(TAG, "Unknown error, clearing cache and retrying...");
+                        irext_auth_clear_cache();
+                        should_retry = true;
+                    }
+                    break;
+            }
+            
+            cJSON_Delete(response_json);
+            free(response);
+            free(auth_body);
+            last_error = ESP_FAIL;
+            
+            if (should_retry) {
+                continue;
+            } else {
+                break;
+            }
+        }
+
+        cJSON *entity = cJSON_GetObjectItem(response_json, "entity");
+        if (!entity || !cJSON_IsArray(entity)) {
+            cJSON_Delete(response_json);
+            free(response);
+            free(auth_body);
+            last_error = ESP_ERR_INVALID_RESPONSE;
+            continue;
+        }
+
+        int array_size = cJSON_GetArraySize(entity);
+        if ((array_size % 2) != 0) {
+            ESP_LOGW(TAG, "Decoded timings length is odd: %d", array_size);
+        }
+        if (array_size < 2) {
+            ESP_LOGW(TAG, "Decoded timings length too short: %d", array_size);
+        }
+
+        *ir_data = (uint32_t *)heap_caps_malloc(array_size * sizeof(uint32_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (!*ir_data) *ir_data = (uint32_t *)malloc(array_size * sizeof(uint32_t));
+        if (!*ir_data) {
+            cJSON_Delete(response_json);
+            free(response);
+            free(auth_body);
+            return ESP_ERR_NO_MEM;
+        }
+
+        *data_length = array_size;
+        
+        for (int i = 0; i < array_size; i++) {
+            cJSON *item = cJSON_GetArrayItem(entity, i);
+            if (cJSON_IsNumber(item)) {
+                (*ir_data)[i] = item->valueint;
+            } else {
+                (*ir_data)[i] = 0; 
+            }
+        }
+
+        cJSON_Delete(response_json);
+        free(response);
+        free(auth_body);
+        return ESP_OK;
+    }
+    
+    return last_error;
 }
 
 esp_err_t irext_api_get_categories(ir_category_t *categories, size_t max_categories, size_t *found_count)
@@ -1152,7 +1223,23 @@ esp_err_t irext_api_get_ac_parameters(uint32_t index_id, uint8_t mode, ir_ac_par
                         ESP_LOGD(TAG, "Retrieved AC parameters for index %d", index_id);
                     }
                 } else {
-                    ESP_LOGE(TAG, "AC parameters API failed with code %d", code_item ? code_item->valueint : -1);
+                    int error_code = code_item ? code_item->valueint : -1;
+                    ESP_LOGE(TAG, "AC parameters API failed with code %d", error_code);
+                    
+                    switch(error_code) {
+                        case 1:
+                            ESP_LOGE(TAG, "AC Parameters Error: Authentication failed - Token invalid or expired");
+                            break;
+                        case 2:
+                            ESP_LOGE(TAG, "AC Parameters Error: Invalid parameters - Check index_id and mode");
+                            break;
+                        case 3:
+                            ESP_LOGE(TAG, "AC Parameters Error: Device not found or not supported");
+                            break;
+                        default:
+                            ESP_LOGE(TAG, "AC Parameters Error: Unknown error code %d", error_code);
+                            break;
+                    }
                     err = ESP_FAIL;
                 }
             } else {

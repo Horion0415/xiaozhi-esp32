@@ -1,6 +1,8 @@
 #include "ir_ac_controller.h"
 #include <cstring>
 #include <cstdio>
+#include "esp_log.h"
+#include <wifi_station.h>
 
 IrAcController& IrAcController::Instance() {
     static IrAcController inst;
@@ -9,20 +11,39 @@ IrAcController& IrAcController::Instance() {
 
 void IrAcController::Init() {
     if (inited_) return;
-    if (!bsp_ir_is_initialized()) {
-        if (bsp_ir_init() != ESP_OK) return;
+    
+    ESP_LOGI("IrAcController", "=== Initializing IR AC Controller ===");
+    
+    auto& wifi_station = WifiStation::GetInstance();
+    if (!wifi_station.IsConnected()) {
+        ESP_LOGW("IrAcController", "WiFi not connected - IR commands may fail");
+    } else {
+        ESP_LOGI("IrAcController", "WiFi connected - Ready for IR operations");
     }
+    
+    if (!bsp_ir_is_initialized()) {
+        ESP_LOGI("IrAcController", "Initializing BSP IR module...");
+        if (bsp_ir_init() != ESP_OK) {
+            ESP_LOGE("IrAcController", "Failed to initialize BSP IR module");
+            return;
+        }
+        ESP_LOGI("IrAcController", "BSP IR module initialized successfully");
+    } else {
+        ESP_LOGI("IrAcController", "BSP IR module already initialized");
+    }
+    
     inited_ = true;
     EnsureWorker();
+    ESP_LOGI("IrAcController", "IR AC Controller initialization completed");
 }
 
 void IrAcController::SetBrand(ir_brand_t brand) {
     brand_ = brand;
     switch (brand) {
-        case IR_BRAND_MIDEA: brand_name_ = "美的"; model_id_ = 3387;  strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
-        case IR_BRAND_HAIER: brand_name_ = "海尔"; model_id_ = 77;  strncpy(model_name_, "77", sizeof(model_name_) - 1); break;
+        case IR_BRAND_MIDEA: brand_name_ = "美的"; model_id_ = 3723;  strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
+        case IR_BRAND_HAIER: brand_name_ = "海尔"; model_id_ = 3522;  strncpy(model_name_, "77", sizeof(model_name_) - 1); break;
         case IR_BRAND_GREE:  brand_name_ = "格力";  model_id_ = 10020; strncpy(model_name_, "10020", sizeof(model_name_) - 1); break;
-        default: brand_name_ = "美的"; model_id_ = 3387; strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
+        default: brand_name_ = "美的"; model_id_ = 3723; strncpy(model_name_, "3387", sizeof(model_name_) - 1); break;
     }
 }
 
@@ -117,7 +138,19 @@ void IrAcController::Worker(void* arg) {
         if (xQueueReceive(self->queue_, &msg, portMAX_DELAY) == pdTRUE) {
             ir_device_info_t info = msg.info;
             ir_ac_status_t st = msg.ac;
+            
+            ESP_LOGI("IrAcController", "Processing IR command: Brand=%s, Model=%s (ID=%d)", 
+                     info.brand, info.model, info.model_id);
+            ESP_LOGI("IrAcController", "AC Settings: Power=%s, Mode=%d, Temp=%d°C", 
+                     st.power == IR_AC_POWER_ON ? "ON" : "OFF", st.mode, st.temperature);
+            
             esp_err_t r = ir_send_ac_command(&info, &st);
+            
+            if (r == ESP_OK) {
+                ESP_LOGI("IrAcController", "IR command sent successfully");
+            } else {
+                ESP_LOGE("IrAcController", "IR command failed: %s", esp_err_to_name(r));
+            }
             if (r != ESP_OK) {
                 // If send failed, try to resolve a valid model_id online and retry once
                 const char* brand_for_api = nullptr;
