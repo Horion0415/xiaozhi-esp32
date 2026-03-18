@@ -169,6 +169,7 @@ esp_err_t bsp_i2c_get_bus_handle(i2c_master_bus_handle_t *handle)
 
 /* ━━━━━━━━━━━━━━ Display (SPI) ━━━━━━━━━━━━━━ */
 
+#if CONFIG_BSP_LCD_SPI
 static esp_err_t bsp_display_new_spi(const bsp_display_config_t *config,
                                      esp_lcd_panel_handle_t *ret_panel,
                                      esp_lcd_panel_io_handle_t *ret_io)
@@ -201,9 +202,11 @@ static esp_err_t bsp_display_new_spi(const bsp_display_config_t *config,
     ESP_LOGI(TAG, "Display (SPI) initialized: %dx%d", BSP_LCD_H_RES, BSP_LCD_V_RES);
     return ESP_OK;
 }
+#endif
 
 /* ━━━━━━━━━━━━━━ Display (PARLIO) ━━━━━━━━━━━━━━ */
 
+#if CONFIG_BSP_LCD_PARLIO
 static esp_err_t bsp_display_new_parlio(const bsp_display_parlio_config_t *config,
                                         esp_lcd_panel_handle_t *ret_panel,
                                         esp_lcd_panel_io_handle_t *ret_io)
@@ -240,6 +243,7 @@ static esp_err_t bsp_display_new_parlio(const bsp_display_parlio_config_t *confi
     ESP_LOGI(TAG, "Display (PARLIO) initialized: %dx%d", BSP_LCD_H_RES, BSP_LCD_V_RES);
     return ESP_OK;
 }
+#endif
 
 /* ━━━━━━━━━━━━━━ Display (unified entry) ━━━━━━━━━━━━━━ */
 
