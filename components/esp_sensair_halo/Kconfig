@@ -1,0 +1,53 @@
+menu "Board Support Package (ESP-SensairHalo)"
+
+    config BSP_ERROR_CHECK
+        bool "Enable error check in BSP"
+        default y
+        help
+            Enable strict error checking with ESP_ERROR_CHECK in BSP functions.
+
+    menu "Audio"
+        config BSP_AUDIO_SAMPLE_RATE
+            int "Audio sample rate (Hz)"
+            default 16000
+            help
+                Default sample rate for speaker and microphone.
+
+        config BSP_ADC_MIC_CHANNEL
+            int "ADC channel for microphone"
+            default 3
+            help
+                ADC channel connected to the analog microphone output.
+                OPA_OUT is routed to GPIO4 on ESP32-C5, which maps to ADC1 channel 3.
+    endmenu
+
+    menu "Display"
+        choice BSP_LCD_BUS_TYPE
+            prompt "LCD bus interface"
+            default BSP_LCD_SPI
+            help
+                Select the bus interface used to drive the ILI9341 LCD panel.
+                SPI uses the esp_lcd SPI IO driver.
+                PARLIO uses the parallel IO driver (higher throughput, useful for camera preview).
+
+            config BSP_LCD_SPI
+                bool "SPI"
+
+            config BSP_LCD_PARLIO
+                bool "Parallel IO (PARLIO)"
+        endchoice
+    endmenu
+
+    menu "Camera"
+        config BSP_CAM_XCLK_LEDC_TIMER
+            int "LEDC timer for camera XCLK"
+            default 0
+            range 0 3
+
+        config BSP_CAM_XCLK_LEDC_CHANNEL
+            int "LEDC channel for camera XCLK"
+            default 0
+            range 0 5
+    endmenu
+
+endmenu

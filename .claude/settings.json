@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/release.py esp-sensairhalo)",
+      "Bash(grep -r \"BSP_LCD_H_RES\\\\|BSP_LCD_V_RES\" --include=*.h --include=*.cc)",
+      "Bash(grep -r \"emote_gif\\\\|emotion.*resolution\\\\|gif.*resolution\" --include=*.h --include=*.cc)",
+      "Bash(find /home/lvhaiyu/code_github/xiaozhi-esp32 -name expression_emote* -o -name *emote* -type f)",
+      "Bash(grep -E \"\\\\.\\(h|cc|c\\)$\")",
+      "Bash(find /home/lvhaiyu/code_github/xiaozhi-esp32 -path */components/*sensair* -o -path */esp_sensair*)",
+      "Bash(git submodule:*)",
+      "Bash(find /home/lvhaiyu -name esp_video_deinit* -o -name spi_video*)",
+      "Bash(sed -n '397,420p' /home/lvhaiyu/esp/esp-idf_lab/components/mbedtls/Kconfig)",
+      "Bash(sed -n '543,560p' /home/lvhaiyu/esp/esp-idf_lab/components/mbedtls/Kconfig)",
+      "Bash(find /home/lvhaiyu/code_github/xiaozhi-esp32/main -name mqtt*.cc -o -name mqtt*.h)"
+    ]
+  }
+}

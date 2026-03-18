@@ -65,6 +65,13 @@ void Application::Initialize() {
     // Setup the display
     auto display = board.GetDisplay();
     display->SetupUI();
+
+    // Mount and load assets before the first UI event so emote resources are ready.
+    auto& assets = Assets::GetInstance();
+    if (assets.partition_valid()) {
+        assets.Apply();
+    }
+
     // Print board name/version info
     display->SetChatMessage("system", SystemInfo::GetUserAgent().c_str());
 
@@ -347,7 +354,6 @@ void Application::CheckAssetsVersion() {
     auto& board = Board::GetInstance();
     auto display = board.GetDisplay();
     auto& assets = Assets::GetInstance();
-
     if (!assets.partition_valid()) {
         ESP_LOGW(TAG, "Assets partition is disabled for board %s", BOARD_NAME);
         return;
@@ -392,7 +398,11 @@ void Application::CheckAssetsVersion() {
     // Apply assets
     assets.Apply();
     display->SetChatMessage("system", "");
+#ifdef CONFIG_USE_EMOTE_MESSAGE_STYLE
+    display->SetEmotion("neutral");
+#else
     display->SetEmotion("microchip_ai");
+#endif
 }
 
 void Application::CheckNewVersion() {
@@ -852,6 +862,27 @@ void Application::ContinueWakeWordInvoke(const std::string& wake_word) {
 #endif
 }
 
+void Application::ContinueDeviceInteraction(const std::string& event_text) {
+    if (event_text.empty()) {
+        return;
+    }
+
+    if (GetDeviceState() != kDeviceStateConnecting || !protocol_) {
+        return;
+    }
+
+    if (!protocol_->IsAudioChannelOpened()) {
+        if (!protocol_->OpenAudioChannel()) {
+            return;
+        }
+    }
+
+    ESP_LOGI(TAG, "Trigger device interaction: %s", event_text.c_str());
+    protocol_->SendWakeWordDetected(event_text);
+    play_popup_on_listening_ = false;
+    SetListeningMode(GetDefaultListeningMode());
+}
+
 void Application::HandleStateChangedEvent() {
     DeviceState new_state = state_machine_.GetState();
     clock_ticks_ = 0;
@@ -1049,6 +1080,65 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
     }
 }
 
+void Application::TriggerDeviceInteraction(const std::string& event_text) {
+    Schedule([this, event_text]() {
+        if (event_text.empty()) {
+            ESP_LOGW(TAG, "Ignore empty device interaction event");
+            return;
+        }
+
+        if (!protocol_) {
+            ESP_LOGW(TAG, "Protocol not initialized, ignore device interaction: %s", event_text.c_str());
+            return;
+        }
+
+        auto state = GetDeviceState();
+        ESP_LOGI(TAG, "Device interaction event: %s (state: %d)", event_text.c_str(), static_cast<int>(state));
+
+        if (state == kDeviceStateIdle) {
+            if (!protocol_->IsAudioChannelOpened()) {
+                SetDeviceState(kDeviceStateConnecting);
+                Schedule([this, event_text]() {
+                    ContinueDeviceInteraction(event_text);
+                });
+                return;
+            }
+
+            protocol_->SendWakeWordDetected(event_text);
+            play_popup_on_listening_ = false;
+            SetListeningMode(GetDefaultListeningMode());
+            return;
+        }
+
+        if (state == kDeviceStateListening) {
+            while (audio_service_.PopPacketFromSendQueue());
+            protocol_->SendStartListening(GetDefaultListeningMode());
+            audio_service_.ResetDecoder();
+            protocol_->SendWakeWordDetected(event_text);
+            return;
+        }
+
+        if (state == kDeviceStateSpeaking) {
+            AbortSpeaking(kAbortReasonNone);
+            while (audio_service_.PopPacketFromSendQueue());
+            play_popup_on_listening_ = false;
+            SetListeningMode(GetDefaultListeningMode());
+            Schedule([this, event_text]() {
+                if (protocol_ == nullptr || !protocol_->IsAudioChannelOpened()) {
+                    return;
+                }
+                if (GetDeviceState() != kDeviceStateListening) {
+                    return;
+                }
+                protocol_->SendWakeWordDetected(event_text);
+            });
+            return;
+        }
+
+        ESP_LOGI(TAG, "Ignore device interaction in state: %d", static_cast<int>(state));
+    });
+}
+
 bool Application::CanEnterSleepMode() {
     if (GetDeviceState() != kDeviceStateIdle) {
         return false;
@@ -1116,4 +1206,3 @@ void Application::ResetProtocol() {
         protocol_.reset();
     });
 }
-

@@ -164,6 +164,9 @@ choice BOARD_TYPE
     config BOARD_TYPE_ESP_SENSAIRSHUTTLE
         bool "Espressif ESP-SensairShuttle"
         depends on IDF_TARGET_ESP32C5
+    config BOARD_TYPE_ESP_SENSAIRHALO
+        bool "Espressif ESP-SensairHalo"
+        depends on IDF_TARGET_ESP32C5
     config BOARD_TYPE_ESP_SPOT_S3
         bool "Espressif Spot-S3"
         depends on IDF_TARGET_ESP32S3
@@ -657,7 +660,7 @@ choice DISPLAY_STYLE
         bool "Emote animation style"
         depends on BOARD_TYPE_ESP_BOX || BOARD_TYPE_ESP_BOX_3 \
             || BOARD_TYPE_ESP_VOCAT || BOARD_TYPE_LICHUANG_DEV_S3 \
-            || BOARD_TYPE_ESP_SENSAIRSHUTTLE
+            || BOARD_TYPE_ESP_SENSAIRSHUTTLE || BOARD_TYPE_ESP_SENSAIRHALO
 endchoice
 
 config USE_MULTILINE_CHAT_MESSAGE
@@ -887,6 +890,47 @@ menu "Camera Configuration"
             comment "For 180° rotation, use HFlip + VFlip instead of this option"
         endchoice
     endif
+
+    menu "ESP-SensairHalo Motion Auto-Talk"
+        depends on BOARD_TYPE_ESP_SENSAIRHALO
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_DEFAULT_ENABLED
+            bool "Enable motion auto-talk by default"
+            default n
+            help
+                Start motion-triggered automatic conversation after boot.
+                The runtime state can still be changed through MCP tools.
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_SAMPLE_INTERVAL_MS
+            int "Motion sampling interval (ms)"
+            range 100 5000
+            default 400
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_DIFF_THRESHOLD
+            int "Motion pixel difference threshold"
+            range 1 255
+            default 24
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_ACTIVE_PIXEL_PERCENT
+            int "Motion active pixel percent"
+            range 1 100
+            default 5
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_CONFIRM_FRAMES
+            int "Motion confirm frames"
+            range 1 20
+            default 2
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_HOLD_FRAMES
+            int "Motion hold frames"
+            range 0 20
+            default 3
+
+        config XIAOZHI_SENSAIRHALO_MOTION_AUTO_TALK_COOLDOWN_SEC
+            int "Motion cooldown (seconds)"
+            range 1 3600
+            default 8
+    endmenu
 endmenu
 
 menu "TAIJIPAI_S3_CONFIG"

@@ -105,6 +105,7 @@ public:
 
     void Reboot();
     void WakeWordInvoke(const std::string& wake_word);
+    void TriggerDeviceInteraction(const std::string& event_text);
     bool UpgradeFirmware(const std::string& url, const std::string& version = "");
     bool CanEnterSleepMode();
     void SendMcpMessage(const std::string& payload);
@@ -155,6 +156,7 @@ private:
     void HandleWakeWordDetectedEvent();
     void ContinueOpenAudioChannel(ListeningMode mode);
     void ContinueWakeWordInvoke(const std::string& wake_word);
+    void ContinueDeviceInteraction(const std::string& event_text);
 
     // Activation task (runs in background)
     void ActivationTask();

@@ -1,0 +1,23 @@
+version: "0.1.0"
+description: Board Support Package (BSP) for ESP-SensairHalo
+url: https://github.com/espressif/esp-halo-internal
+
+targets:
+  - esp32c5
+
+tags:
+  - bsp
+
+dependencies:
+  idf: ">=5.5"
+  esp_video:
+    version: "*"
+  espressif/esp_lcd_ili9341: "*"
+  espressif/esp_lcd_touch_cst816s: "*"
+  espressif/led_strip: "^3.0.3"
+  esp_codec_dev: "^1"
+  espressif/esp_lvgl_adapter: "*"
+  touch_ic_bs8112a3:
+    version: "^0.1"
+  espressif2022/bmi270: "*"
+  tangyumei3535/bmm150_sensorapi: "^1.0.0"
