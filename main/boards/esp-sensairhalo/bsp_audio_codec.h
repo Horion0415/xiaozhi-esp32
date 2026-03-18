@@ -10,7 +10,7 @@ class BspAudioCodec : public AudioCodec {
 private:
     esp_codec_dev_handle_t output_dev_ = nullptr;
     esp_codec_dev_handle_t input_dev_ = nullptr;
-    std::vector<int16_t> scaled_buf_;
+    std::vector<int16_t> write_buf_;
 
     virtual int Read(int16_t* dest, int samples) override;
     virtual int Write(const int16_t* data, int samples) override;

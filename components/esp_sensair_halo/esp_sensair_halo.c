@@ -401,7 +401,7 @@ esp_err_t bsp_speaker_init(esp_codec_dev_handle_t *ret_handle)
     esp_codec_dev_cfg_t codec_cfg = {
         .dev_type = ESP_CODEC_DEV_TYPE_OUT,
         .data_if = data_if,
-        .codec_if = &s_codec_if,
+        .codec_if = NULL,
     };
     s_speaker_codec = esp_codec_dev_new(&codec_cfg);
     ESP_RETURN_ON_FALSE(s_speaker_codec != NULL, ESP_FAIL, TAG, "Speaker codec create failed");

@@ -112,15 +112,9 @@ int BspAudioCodec::Read(int16_t* dest, int samples) {
 
 int BspAudioCodec::Write(const int16_t* data, int samples) {
     if (output_enabled_ && output_dev_ != nullptr) {
-        if (output_volume_ < 100) {
-            scaled_buf_.resize(samples);
-            for (int i = 0; i < samples; i++) {
-                scaled_buf_[i] = (int32_t)data[i] * output_volume_ / 100;
-            }
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_write(output_dev_, scaled_buf_.data(), samples * sizeof(int16_t)));
-        } else {
-            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_write(output_dev_, (void*)data, samples * sizeof(int16_t)));
-        }
+        // Internal software volume updates the playback buffer in place.
+        write_buf_.assign(data, data + samples);
+        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_codec_dev_write(output_dev_, write_buf_.data(), samples * sizeof(int16_t)));
     }
     return samples;
 }
